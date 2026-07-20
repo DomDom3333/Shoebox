@@ -5,22 +5,28 @@
 }
 
 <div class="hero">
-    <h1>Everyone's photos.<br />One pool.</h1>
+    <h1>Your friends took the <em class="underline">better</em> photos.</h1>
     <p class="lead">
-        Collect photos from a wedding, festival or trip in one shared pool.
-        No accounts, no app — just a link.
+        GroupPhoto collects everyone's shots from a wedding, a festival, or a trip into one
+        shared pool. No accounts, no app — one link, passed around like a disposable camera.
     </p>
 </div>
 
 <div class="home-grid">
-    <section class="card">
-        <h2>Join a pool</h2>
-        <p>Got a code or link from a friend? Enter the code:</p>
+    <section>
+        <h2>Start a pool</h2>
+        <p class="lead">Name it, share the link or QR code, and the photos start arriving.</p>
+        <a href="/Create" class="btn btn-primary">Create a pool</a>
+    </section>
+
+    <section>
+        <h2>Join with a code</h2>
+        <p class="lead">Someone handed you an eight-letter code? In you go.</p>
         <form method="post" asp-page-handler="Join" class="join-form">
-            <input type="text" name="code" placeholder="e.g. K7MPX2WQ" autocomplete="off"
+            <input type="text" name="code" placeholder="K7MPX2WQ" autocomplete="off"
                    autocapitalize="characters" spellcheck="false" maxlength="16" required
-                   value="@Model.Code" class="code-input" />
-            <button type="submit" class="btn btn-primary">Open pool</button>
+                   value="@Model.Code" class="code-input" aria-label="Pool code" />
+            <button type="submit" class="btn btn-ghost">Open pool</button>
         </form>
         @if (Model.CodeNotFound)
         {
@@ -28,9 +34,12 @@
         }
     </section>
 
-    <section class="card">
-        <h2>Start a pool</h2>
-        <p>Create a pool for your event and share the link or QR code with everyone.</p>
-        <a href="/Create" class="btn btn-primary">Create a pool</a>
+    <section>
+        <h2>How it works</h2>
+        <ol class="steps">
+            <li><span><strong>Create.</strong> One pool per event. Password and auto-delete optional.</span></li>
+            <li><span><strong>Share.</strong> Put the QR code on the table; guests upload under their name.</span></li>
+            <li><span><strong>Collect.</strong> Browse the gallery, then download everyone else's photos as a ZIP.</span></li>
+        </ol>
     </section>
 </div>

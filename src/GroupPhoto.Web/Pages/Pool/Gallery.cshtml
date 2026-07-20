@@ -70,7 +70,7 @@
 @if (Model.Photos.Count == 0)
 {
     <div class="empty-state">
-        <p>No photos yet — be the first!</p>
+        <p><span class="big">Nothing here yet.</span> You were there — prove it.</p>
     </div>
 }
 
@@ -88,10 +88,14 @@
                 <div class="no-thumb" title="Preview not available for this file"><span>@photo.FileName</span></div>
             }
             <figcaption>
-                <span class="uploader">@photo.UploaderName @(photo.Mine ? "· you" : "")</span>
+                <span class="uploader">@photo.UploaderName</span>
+                @if (photo.Mine)
+                {
+                    <span class="badge-you">you</span>
+                }
                 @if (photo.Mine || Model.IsAdmin)
                 {
-                    <button type="button" class="delete-btn" title="Delete photo">✕</button>
+                    <button type="button" class="delete-btn" title="Delete photo">&times;</button>
                 }
             </figcaption>
         </figure>
@@ -99,10 +103,10 @@
 </div>
 
 <div class="lightbox" id="lightbox" hidden>
-    <button type="button" class="lb-close" title="Close">✕</button>
-    <button type="button" class="lb-prev" title="Previous">‹</button>
+    <button type="button" class="lb-close" title="Close">&times;</button>
+    <button type="button" class="lb-prev" title="Previous">&larr;</button>
     <img id="lightbox-img" alt="" />
-    <button type="button" class="lb-next" title="Next">›</button>
+    <button type="button" class="lb-next" title="Next">&rarr;</button>
     <div class="lb-bar">
         <span id="lightbox-caption"></span>
         <a id="lightbox-download" class="btn btn-ghost" download>Download</a>

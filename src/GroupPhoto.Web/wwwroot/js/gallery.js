@@ -67,18 +67,18 @@
         const result = await uploadOne(file, (pct) => (status.textContent = pct + "%"));
         const r = result.results && result.results[0];
         if (r && r.status === "added") {
-          status.textContent = "✓ uploaded";
+          status.textContent = "uploaded";
           status.className = "status ok";
           anyAdded = true;
         } else if (r && r.status === "duplicate") {
           status.textContent = "already in pool";
           status.className = "status";
         } else {
-          status.textContent = "✕ " + ((r && r.reason) || "failed");
+          status.textContent = (r && r.reason) || "failed";
           status.className = "status fail";
         }
       } catch (err) {
-        status.textContent = "✕ " + err.message;
+        status.textContent = err.message;
         status.className = "status fail";
       }
     }
