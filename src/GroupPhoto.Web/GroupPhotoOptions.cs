@@ -9,6 +9,18 @@ public class GroupPhotoOptions
 
     public int MaxFileSizeMb { get; set; } = 50;
 
+    /// <summary>
+    /// Reject images larger than this many pixels (width × height) before decoding,
+    /// to stop decompression-bomb / pixel-flood uploads. 100 MP clears any real camera.
+    /// </summary>
+    public long MaxImagePixels { get; set; } = 100_000_000;
+
+    /// <summary>Reject images whose width or height exceeds this many pixels.</summary>
+    public int MaxImageDimension { get; set; } = 30_000;
+
+    /// <summary>Password-unlock attempts allowed per client IP per pool per minute.</summary>
+    public int UnlockAttemptsPerMinute { get; set; } = 10;
+
     /// <summary>Longest edge of generated thumbnails, in pixels.</summary>
     public int ThumbnailSize { get; set; } = 480;
 

@@ -22,6 +22,18 @@ public class ImageRenderer(IOptions<GroupPhotoOptions> options, ILogger<ImageRen
     {
         try
         {
+            // Cheap header read first: reject pixel-flood / decompression-bomb images
+            // before allocating anything to decode them.
+            var probe = new MagickImageInfo(originalPath);
+            if (probe.Width > (uint)options.Value.MaxImageDimension ||
+                probe.Height > (uint)options.Value.MaxImageDimension ||
+                (long)probe.Width * probe.Height > options.Value.MaxImagePixels)
+            {
+                logger.LogWarning("Rejected oversized image {W}x{H} for {Path}",
+                    probe.Width, probe.Height, originalPath);
+                return null;
+            }
+
             using var image = new MagickImage(originalPath);
 
             var takenAt = ReadTakenAt(image.GetExifProfile());

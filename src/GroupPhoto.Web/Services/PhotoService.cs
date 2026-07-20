@@ -109,13 +109,20 @@ public class PhotoService(
 
         var info = await renderer.ProcessAsync(
             originalPath, paths.ThumbFile(pool.Id, photo.Id), paths.DisplayFile(pool.Id, photo.Id), ct);
-        if (info is not null)
+        if (info is null)
         {
-            photo.Width = info.Width;
-            photo.Height = info.Height;
-            photo.TakenAt = info.TakenAt;
-            photo.HasThumbnail = true;
+            // Not a readable image within limits: corrupt, mislabelled, or an
+            // oversized decode bomb. Don't store or serve it.
+            DeleteIfExists(originalPath);
+            DeleteIfExists(paths.ThumbFile(pool.Id, photo.Id));
+            DeleteIfExists(paths.DisplayFile(pool.Id, photo.Id));
+            return UploadResult.Rejected(fileName, "Couldn't read this image (it may be corrupt or too large)");
         }
+
+        photo.Width = info.Width;
+        photo.Height = info.Height;
+        photo.TakenAt = info.TakenAt;
+        photo.HasThumbnail = true;
 
         db.Photos.Add(photo);
         await db.SaveChangesAsync(ct);
