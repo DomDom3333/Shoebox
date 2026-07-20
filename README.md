@@ -12,6 +12,8 @@ link (or QR code), people open it on their phone, type their name, and upload.
 - **No accounts** — uploaders just type a name; a browser cookie remembers who they are
 - **Gallery** — fast thumbnail grid (server-side WebP thumbs), lightbox, filter by uploader,
   photos sorted by when they were taken (EXIF)
+- **iPhone HEIC/HEIF supported** — decoded server-side (Magick.NET) so they get real
+  thumbnails and previews like any other photo
 - **Downloads** — single photos, the whole pool as a streamed ZIP, or **"download others'"**:
   everything *except* your own uploads
 - **QR code sharing** — print it on the wedding tables, tape it to the festival cooler
@@ -77,8 +79,10 @@ Data is written to `src/GroupPhoto.Web/data/` (gitignored).
 
 ## Notes & limitations
 
-- **HEIC/HEIF** (iPhone) files are accepted and stored, but no thumbnail/preview is
-  generated for them — they show as a placeholder tile and are included in ZIPs.
+- **HEIC/HEIF** (iPhone) files are decoded server-side, so they get WebP thumbnails and
+  sort by capture date like any other photo. The stored original stays HEIC; the lightbox
+  falls back to the thumbnail on browsers that can't render HEIC inline (e.g. non-Safari),
+  while the Download button always returns the true original.
 - **EXIF data (including GPS location) is preserved** on the original files. Everyone in
   the pool can download originals — mention this to privacy-conscious guests.
 - One instance, one filesystem: this is deliberately simple software for a party, not a
@@ -86,5 +90,6 @@ Data is written to `src/GroupPhoto.Web/data/` (gitignored).
 
 ## Tech
 
-ASP.NET Core (Razor Pages, .NET 10) · EF Core + SQLite · SixLabors.ImageSharp · QRCoder ·
-vanilla JS/CSS frontend · Docker multi-stage build.
+ASP.NET Core (Razor Pages, .NET 10) · EF Core + SQLite · SixLabors.ImageSharp (common
+formats) · Magick.NET (HEIC/HEIF, self-contained native — no system packages needed) ·
+QRCoder · vanilla JS/CSS frontend · Docker multi-stage build.
