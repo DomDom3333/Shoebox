@@ -1,36 +1,29 @@
-<div align="center">
+# GroupPhoto
 
-# 📸 GroupPhoto
-
-**Collect everyone's photos from a shared event into one pool — no accounts, no app.**
-
-Share a link (or QR code), let people open it on their phone, type their name, and upload.
-Perfect for weddings, festivals, and holiday trips where the best photos are scattered
-across a dozen phones.
+A lightweight, self-hosted web app for collecting everyone's photos from a shared event into
+one pool — no accounts, no app. Share a link (or QR code), and people open it on their phone,
+type their name, and upload. Useful for weddings, festivals, and trips, where the good photos
+end up scattered across a dozen phones.
 
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-</div>
-
----
-
-## Why?
-
-After a wedding or a weekend away, everyone has photos and no one has *all* of them. Group
-chats compress them to mush, shared-album apps need accounts, and cloud drives are fiddly to
-hand out. GroupPhoto is the boring, self-hosted answer: one page, one link, everybody's
-full-resolution photos in one place.
+> [!IMPORTANT]
+> GroupPhoto is meant for the days and weeks around an event, not as durable storage. It runs
+> as a single instance on a single filesystem, with no replication, versioning, or built-in
+> off-site backup, and pools can be set to delete themselves. Treat it as a convenient drop
+> box to gather photos, then have people download what they want to keep. If a pool needs to
+> survive, back up the data directory yourself.
 
 ## How it works
 
-**For the organizer**
+For the organizer:
 
-1. Create a pool, give it a name, and (optionally) set a password and an auto-delete date.
-2. You get a share link + QR code to hand out, and a private admin link to keep.
+1. Create a pool, give it a name, and optionally set a password and an auto-delete date.
+2. You get a share link and QR code to hand out, plus a private admin link to keep.
 
-**For everyone else**
+For everyone else:
 
 1. Open the link (or scan the QR code) — no sign-up.
 2. Type your name and drag in photos.
@@ -38,28 +31,27 @@ full-resolution photos in one place.
 
 ## Features
 
-- **🔗 Shareable pools** — one gallery per event, reachable by an 8-character code, a link, or a QR code. Pools are unlisted: no directory, no browsing other people's events.
-- **🙈 No accounts** — uploaders just type a name. A browser cookie quietly remembers who they are, so their photos get a "you" badge and they can delete their own.
-- **🔒 Optional passwords, done properly** — enter the password once per device. After that a signed cookie unlocks everything. Photo files live outside the web root and every image/download re-checks that cookie, so a leaked image URL is useless without the password.
-- **🖼️ Fast, sharp gallery** — a WebP thumbnail grid, plus a full-screen lightbox backed by a ~1600px web-safe proxy — crisp to view, without pushing a 50 MB original down the wire. Filter by uploader; photos sort by capture time (EXIF).
-- **📱 iPhone HEIC/HEIF** — decoded server-side, so they get real thumbnails and previews in *every* browser, not just Safari.
-- **⬇️ Flexible downloads** — one photo, the whole pool as a streamed ZIP, or **"download others'"** — everything except your own uploads.
-- **🧑‍✈️ Private admin link** — the creator can rename the pool, change or remove the password, adjust expiry, delete individual photos, or nuke the whole pool.
-- **⏳ Auto-expiry** — optionally have a pool delete itself N days after the event.
-- **🧹 Deduplication** — the same photo uploaded twice is stored once (SHA-256).
-- **💾 Dead-simple storage** — files on disk + a SQLite database. Back up one folder and you've backed up everything.
+- **Shareable pools** — one gallery per event, reachable by an 8-character code, a link, or a QR code. Pools are unlisted: there is no directory and no way to browse other people's events.
+- **No accounts** — uploaders just enter a name. A browser cookie remembers who they are, so their photos get a "you" badge and they can delete their own uploads.
+- **Optional passwords** — a guest enters the password once per device; a signed cookie unlocks the pool after that. Photo files live outside the web root and every image and download re-checks the cookie server-side, so a leaked image URL is useless without it.
+- **Fast gallery** — a WebP thumbnail grid plus a full-screen lightbox backed by a downscaled web-safe proxy, so viewing is sharp without sending a full-size original over the wire. Filter by uploader; photos sort by capture time (EXIF).
+- **Flexible downloads** — a single photo, the whole pool as a streamed ZIP, or "download others'": everything except your own uploads.
+- **Private admin link** — the creator can rename the pool, change or remove the password, adjust expiry, delete individual photos, or delete the whole pool.
+- **Auto-expiry** — a pool can be set to delete itself a chosen number of days after the event.
+- **Deduplication** — the same file uploaded twice is stored once (SHA-256).
+- **Simple storage** — files on disk plus a SQLite database. One directory holds everything.
 
 ## Quick start
 
-With Docker — the easiest way to run it:
+With Docker, which is the easiest way to run it:
 
 ```bash
 docker compose up -d --build
 # open http://localhost:8080
 ```
 
-Everything (photos, database, cookie-signing keys) is persisted in the `groupphoto-data`
-volume mounted at `/data`. Back that up and you're safe.
+All state (photos, database, cookie-signing keys) is kept in the `groupphoto-data` volume
+mounted at `/data`.
 
 ### Run locally for development
 
@@ -79,34 +71,51 @@ Set via environment variables (`GroupPhoto__Key`) or the `GroupPhoto` section of
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `DataPath` | `/data` (Docker) · `data` (local) | Root folder for the DB, photos, and keys |
+| `DataPath` | `/data` (Docker), `data` (local) | Root folder for the database, photos, and keys |
 | `MaxFileSizeMb` | `50` | Per-file upload limit |
 | `ThumbnailSize` | `480` | Longest edge of gallery thumbnails (px) |
-| `DisplaySize` | `1600` | Longest edge of the full-screen lightbox proxy (px) |
+| `DisplaySize` | `1600` | Longest edge of the lightbox proxy (px) |
 | `DefaultExpiryDays` | `0` | Expiry pre-selected on the create form (`0` = never) |
-| `CookieLifetimeDays` | `90` | How long unlock/identity/admin cookies last |
-| `PublicBaseUrl` | *(derived from request)* | Public URL used in share links & QR codes |
+| `CookieLifetimeDays` | `90` | How long unlock, identity, and admin cookies last |
+| `PublicBaseUrl` | *(derived from request)* | Public URL used in share links and QR codes |
 
 ### Behind a reverse proxy
 
-The app honours `X-Forwarded-Proto` / `X-Forwarded-For`, so HTTPS termination in
-Caddy / nginx / Traefik works out of the box. Two things to set:
+The app honours `X-Forwarded-Proto` and `X-Forwarded-For`, so HTTPS termination in
+Caddy, nginx, or Traefik works out of the box. Two things to set:
 
-- `GroupPhoto__PublicBaseUrl` — your public address, so QR codes and share links point to the right place.
-- Your proxy's request-body limit — at least `MaxFileSizeMb` (e.g. `client_max_body_size 50m;` in nginx).
+- `GroupPhoto__PublicBaseUrl` — your public address, so QR codes and share links are correct.
+- Your proxy's request-body limit — at least `MaxFileSizeMb` (for example `client_max_body_size 50m;` in nginx).
+
+## Supported formats
+
+Uploads are accepted and decoded server-side (Magick.NET) in these formats:
+
+| Format | Extensions |
+|---|---|
+| JPEG | `.jpg`, `.jpeg` |
+| PNG | `.png` |
+| GIF | `.gif` |
+| WebP | `.webp` |
+| HEIC / HEIF | `.heic`, `.heif` |
+
+Every accepted upload gets a WebP thumbnail and lightbox proxy regardless of source format, so
+formats that browsers can't display natively — HEIC/HEIF from phones in particular — still
+appear in the gallery everywhere. The original file is always stored unmodified and is what the
+Download button returns. Other file types are rejected at upload, and files above
+`MaxFileSizeMb` are rejected too.
 
 ## Under the hood
 
 ### Three renditions per photo
 
-Every upload is decoded once (Magick.NET) and produces three files, so each context gets a
-right-sized image:
+Each upload is decoded once and produces three files, so every context gets a right-sized image:
 
 | Rendition | Size | Format | Used for |
 |---|---|---|---|
 | Thumbnail | ~480px | WebP | Gallery grid |
 | Display proxy | ~1600px | WebP | Full-screen lightbox |
-| Original | untouched | as uploaded | Downloads & ZIPs |
+| Original | untouched | as uploaded | Downloads and ZIPs |
 
 ### Storage layout
 
@@ -120,12 +129,12 @@ right-sized image:
     └── display/{photoId}.webp        # lightbox proxies
 ```
 
-### Access & identity model
+### Access and identity model
 
-- **Pools are unlisted** — you need the code or link to find one; there's no listing.
-- **Password unlock** sets a tamper-proof cookie (ASP.NET Data Protection). Because originals live outside `wwwroot` and are streamed through access-checked endpoints, copying an image or ZIP URL gets you a 404 without the cookie — not the bytes.
-- **The admin link** carries a one-time capability key. On first use it's exchanged for a signed admin cookie and stripped from the URL, so the key never lingers in history or logs. Treat the link like a password; whoever holds it can manage the pool.
-- **Uploader identity** is a random ID in a long-lived cookie. It powers "your photos" badges, delete-your-own, and "download others'" — it's a convenience, **not** a security boundary.
+- **Pools are unlisted** — you need the code or link to reach one; there is no listing.
+- **Password unlock** sets a tamper-proof cookie (ASP.NET Data Protection). Because originals live outside `wwwroot` and are streamed through access-checked endpoints, requesting an image or ZIP URL without the cookie returns a 404, not the bytes.
+- **The admin link** carries a one-time capability key. On first use it is exchanged for a signed admin cookie and stripped from the URL, so the key doesn't linger in history or logs. Treat the link like a password; whoever holds it can manage the pool.
+- **Uploader identity** is a random ID in a long-lived cookie. It drives the "your photos" badge, delete-your-own, and "download others'" — it is a convenience, not a security boundary.
 
 ### HTTP endpoints
 
@@ -156,17 +165,18 @@ src/GroupPhoto.Web/
 Dockerfile · docker-compose.yml
 ```
 
-## Notes & limitations
+## Notes and limitations
 
+- **Not long-term storage.** See the note at the top. There is no redundancy or automatic backup; back up the data directory if a pool matters, and don't rely on it as anyone's only copy.
 - **EXIF (including GPS) is preserved** on originals, and anyone in the pool can download them. Worth mentioning to privacy-conscious guests.
-- **Single instance, single filesystem.** This is deliberately simple software for an event — not a scalable photo platform. It expects one server and one data folder.
-- **Guard your links.** Anyone with the pool link (and password, if set) can view and upload; anyone with the admin link can manage. There's no e-mail recovery — the links *are* the credentials.
+- **Single instance, single filesystem.** This is deliberately simple software for an event, not a scalable photo platform. It expects one server and one data folder.
+- **The links are the credentials.** Anyone with the pool link (and password, if set) can view and upload; anyone with the admin link can manage. There is no email or account recovery.
 
 ## Tech stack
 
-ASP.NET Core Razor Pages (.NET 10) · EF Core + SQLite · Magick.NET for all image rendering
-including HEIC/HEIF (self-contained native — no system packages required) · QRCoder ·
-vanilla JS/CSS front end · multi-stage Docker build.
+ASP.NET Core Razor Pages (.NET 10), EF Core + SQLite, Magick.NET for all image rendering
+including HEIC/HEIF (self-contained native — no system packages required), QRCoder, and a
+vanilla JS/CSS front end, built as a multi-stage Docker image.
 
 ## License
 
