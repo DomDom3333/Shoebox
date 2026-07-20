@@ -28,7 +28,7 @@ builder.Services.AddSingleton<StoragePaths>();
 builder.Services.AddSingleton<UploaderIdentity>();
 builder.Services.AddSingleton<PoolAccessService>();
 builder.Services.AddSingleton<ShareLinkService>();
-builder.Services.AddSingleton<ThumbnailService>();
+builder.Services.AddSingleton<ImageRenderer>();
 builder.Services.AddSingleton<ZipStreamService>();
 builder.Services.AddScoped<PoolService>();
 builder.Services.AddScoped<PhotoService>();

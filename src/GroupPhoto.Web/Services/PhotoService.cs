@@ -15,7 +15,7 @@ public record UploadResult(string FileName, string Status, Guid? PhotoId = null,
 public class PhotoService(
     AppDbContext db,
     StoragePaths paths,
-    ThumbnailService thumbnails,
+    ImageRenderer renderer,
     IOptions<GroupPhotoOptions> options)
 {
     private static readonly Dictionary<string, string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -107,14 +107,14 @@ public class PhotoService(
         var originalPath = paths.OriginalFile(pool.Id, photo.Id, photo.Extension);
         File.Move(tempPath, originalPath);
 
-        var info = await thumbnails.ProcessAsync(
+        var info = await renderer.ProcessAsync(
             originalPath, paths.ThumbFile(pool.Id, photo.Id), paths.DisplayFile(pool.Id, photo.Id), ct);
         if (info is not null)
         {
             photo.Width = info.Width;
             photo.Height = info.Height;
             photo.TakenAt = info.TakenAt;
-            photo.HasThumbnail = info.ThumbnailCreated;
+            photo.HasThumbnail = true;
         }
 
         db.Photos.Add(photo);

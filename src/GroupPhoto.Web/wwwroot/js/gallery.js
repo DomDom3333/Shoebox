@@ -161,14 +161,9 @@
     currentIndex = (index + tiles.length) % tiles.length;
     const tile = tiles[currentIndex];
     // The lightbox shows the web-safe "display" proxy — full-screen sharp but far smaller
-    // than a 50MB phone original, and viewable in every browser (including HEIC). If it
-    // somehow fails, fall back to the thumbnail rather than a broken image. The Download
-    // button always fetches the true original.
+    // than a 50MB phone original, and viewable in every browser (including HEIC). The
+    // Download button always fetches the true original.
     const base = tile.dataset.original.replace(/\/original$/, "");
-    lbImg.onerror = () => {
-      lbImg.onerror = null;
-      lbImg.src = base + "/thumb";
-    };
     lbImg.src = base + "/display";
     lbCaption.textContent = `${tile.dataset.uploader} · ${tile.dataset.filename}`;
     lbDownload.href = tile.dataset.original + "?download=true";

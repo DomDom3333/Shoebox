@@ -91,6 +91,6 @@ Data is written to `src/GroupPhoto.Web/data/` (gitignored).
 
 ## Tech
 
-ASP.NET Core (Razor Pages, .NET 10) · EF Core + SQLite · SixLabors.ImageSharp (common
-formats) · Magick.NET (HEIC/HEIF, self-contained native — no system packages needed) ·
-QRCoder · vanilla JS/CSS frontend · Docker multi-stage build.
+ASP.NET Core (Razor Pages, .NET 10) · EF Core + SQLite · Magick.NET for all image
+rendering incl. HEIC/HEIF (self-contained native — no system packages needed) · QRCoder ·
+vanilla JS/CSS frontend · Docker multi-stage build.

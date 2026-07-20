@@ -98,23 +98,14 @@ public static class PhotoEndpoints
             return Results.NotFound();
         }
 
-        context.Response.Headers.CacheControl = "private, max-age=86400";
-
-        // Serve the web-safe display proxy when one was generated; otherwise the original
-        // is already web-viewable and no larger than the display box, so serve it directly.
         var displayPath = paths.DisplayFile(photo.PoolId, photo.Id);
-        if (File.Exists(displayPath))
-        {
-            return Results.File(displayPath, "image/webp", enableRangeProcessing: true);
-        }
-
-        var originalPath = paths.OriginalFile(photo.PoolId, photo.Id, photo.Extension);
-        if (!File.Exists(originalPath))
+        if (!photo.HasThumbnail || !File.Exists(displayPath))
         {
             return Results.NotFound();
         }
 
-        return Results.File(originalPath, photo.ContentType, enableRangeProcessing: true);
+        context.Response.Headers.CacheControl = "private, max-age=86400";
+        return Results.File(displayPath, "image/webp", enableRangeProcessing: true);
     }
 
     private static async Task<IResult> ServeOriginalAsync(
