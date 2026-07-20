@@ -196,6 +196,27 @@
     if (e.key === "ArrowRight") showAt(currentIndex + 1);
   });
 
+  // Touch: swipe left/right to move between photos, quick tap to close.
+  let touchX = null, touchY = null, touchMoved = false;
+  lightbox.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) { touchX = null; return; }
+    touchX = e.touches[0].clientX;
+    touchY = e.touches[0].clientY;
+    touchMoved = false;
+  }, { passive: true });
+  lightbox.addEventListener("touchmove", () => { touchMoved = true; }, { passive: true });
+  lightbox.addEventListener("touchend", (e) => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    const dy = e.changedTouches[0].clientY - touchY;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      showAt(currentIndex + (dx < 0 ? 1 : -1));
+    } else if (!touchMoved && e.target === lbImg) {
+      closeLightbox();
+    }
+    touchX = null;
+  }, { passive: true });
+
   // ---------- Share dialog ----------
 
   const shareDialog = document.getElementById("share-dialog");

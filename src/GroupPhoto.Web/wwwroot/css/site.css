@@ -62,7 +62,11 @@
 
 ::selection { background: #f9e28d; color: #191817; }
 
-html { font-size: 16px; }
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;  /* don't let mobile browsers inflate text */
+  text-size-adjust: 100%;
+}
 
 body {
   margin: 0;
@@ -74,7 +78,15 @@ body {
   color: var(--ink);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;  /* we provide our own :active feedback */
 }
+
+/* No 300ms tap delay or double-tap zoom on controls; keeps pinch-zoom. */
+a, button, label, select, input, textarea, .tile, summary {
+  touch-action: manipulation;
+}
+
+img { max-width: 100%; }
 
 /* ---------- Header ---------- */
 
@@ -82,7 +94,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.9rem 1.5rem;
+  gap: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.9rem max(1.5rem, env(safe-area-inset-right)) 0.9rem max(1.5rem, env(safe-area-inset-left));
+  padding-top: max(0.9rem, env(safe-area-inset-top));
   background: var(--paper);
   border-bottom: 1px solid var(--line);
   position: sticky;
@@ -117,8 +132,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   border: 1px solid var(--line);
   background: var(--paper);
@@ -127,7 +142,7 @@ body {
   text-decoration: none;
   transition: background 0.12s ease;
 }
-.icon-btn:hover { background: var(--paper-dim); }
+.icon-btn:hover, .icon-btn:active { background: var(--paper-dim); }
 .icon-btn svg { width: 1.15rem; height: 1.15rem; display: block; }
 
 .theme-toggle .icon-moon { display: inline-flex; }
@@ -197,10 +212,13 @@ a { color: var(--ink); }
 /* ---------- Buttons ---------- */
 
 .btn {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;               /* comfortable touch target */
   font: 600 0.95rem/1.2 var(--sans);
   border-radius: 0;
-  padding: 0.6rem 1.1rem;
+  padding: 0.55rem 1.1rem;
   cursor: pointer;
   text-decoration: none;
   text-align: center;
@@ -209,14 +227,15 @@ a { color: var(--ink); }
 }
 .btn:active { transform: translateY(1px); }
 
+/* :hover is for mice; :active mirrors it so touch taps still give feedback */
 .btn-primary { background: var(--ink); color: var(--paper); }
-.btn-primary:hover { background: var(--ink-hover); }
+.btn-primary:hover, .btn-primary:active { background: var(--ink-hover); }
 
 .btn-ghost { background: var(--paper); color: var(--ink); }
-.btn-ghost:hover { background: var(--paper-dim); }
+.btn-ghost:hover, .btn-ghost:active { background: var(--paper-dim); }
 
 .btn-danger { background: var(--paper); color: var(--danger); border-color: var(--danger); }
-.btn-danger:hover { background: var(--danger); color: var(--paper); }
+.btn-danger:hover, .btn-danger:active { background: var(--danger); color: var(--paper); }
 
 /* ---------- Forms ---------- */
 
@@ -519,16 +538,20 @@ input[type="checkbox"] { accent-color: var(--ink); }
 
 .delete-btn {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
   background: none;
   color: var(--muted);
   border: none;
-  font-size: 1rem;
+  font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
-  padding: 0.2rem 0.3rem;
   border-radius: 0;
 }
-.delete-btn:hover { color: var(--paper); background: var(--danger); }
+.delete-btn:hover, .delete-btn:active { color: var(--paper); background: var(--danger); }
 
 .empty-state {
   text-align: center;
@@ -582,13 +605,13 @@ input[type="checkbox"] { accent-color: var(--ink); }
   transition: color 0.12s, border-color 0.12s;
 }
 .lightbox button:hover { color: #fff; border-color: #fff; }
-.lb-close { top: 1rem; right: 1rem; }
-.lb-prev { left: 1rem; top: 50%; transform: translateY(-50%); }
-.lb-next { right: 1rem; top: 50%; transform: translateY(-50%); }
+.lb-close { top: max(1rem, env(safe-area-inset-top)); right: max(1rem, env(safe-area-inset-right)); }
+.lb-prev { left: max(0.5rem, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); }
+.lb-next { right: max(0.5rem, env(safe-area-inset-right)); top: 50%; transform: translateY(-50%); }
 
 .lb-bar {
   position: absolute;
-  bottom: 1.1rem;
+  bottom: max(1.1rem, env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -596,10 +619,10 @@ input[type="checkbox"] { accent-color: var(--ink); }
   align-items: center;
   color: #d8d6d2;
   font-size: 0.9rem;
-  max-width: 90vw;
+  max-width: 92vw;
 }
 .lb-bar .btn { color: #fff; border-color: rgba(255, 255, 255, 0.5); background: transparent; }
-.lb-bar .btn:hover { background: rgba(255, 255, 255, 0.12); }
+.lb-bar .btn:hover, .lb-bar .btn:active { background: rgba(255, 255, 255, 0.12); }
 
 /* ---------- Share dialog ---------- */
 
@@ -654,16 +677,39 @@ input[type="checkbox"] { accent-color: var(--ink); }
 .danger-zone { border-color: #e5b5b0; }
 .danger-zone h2 { color: var(--danger); }
 
+/* ---------- Touch devices ---------- */
+
+/* On touch pointers, inputs must be >=16px or iOS zooms in on focus; also
+   grow the smaller controls to a comfortable tap size. */
+@media (pointer: coarse) {
+  input, select, textarea,
+  .code-input, .share-link-row input, .admin-link { font-size: 16px; }
+  .delete-btn { min-width: 2.75rem; min-height: 2.75rem; font-size: 1.25rem; }
+  .lightbox button { width: 3rem; height: 3rem; }
+  .gallery-tools .filter select { min-height: 44px; }
+}
+
 /* ---------- Small screens ---------- */
 
 @media (max-width: 600px) {
   .container { padding: 1.5rem 1rem 3rem; }
   .hero { padding: 2rem 0 1.5rem; }
-  .gallery { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem 0.8rem; }
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem 0.8rem; }
   .gallery-tools { flex-direction: column; align-items: stretch; }
+  .gallery-tools .filter select { flex: 1; }
   .download-buttons .btn { flex: 1; }
   .join-form { flex-direction: column; }
-  .site-footer { justify-content: center; text-align: center; }
+  .join-form .code-input { text-align: center; }
+  .site-footer {
+    justify-content: center;
+    text-align: center;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* very small phones: single-column gallery reads better than cramped pairs */
+@media (max-width: 380px) {
+  .gallery { grid-template-columns: 1fr 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
