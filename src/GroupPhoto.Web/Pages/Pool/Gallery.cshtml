@@ -25,7 +25,7 @@
         · @Model.Photos.Count photo@(Model.Photos.Count == 1 ? "" : "s")
         @if (Model.Uploaders.Count > 0)
         {
-            <text>· from @Model.Uploaders.Count</text> @(Model.Uploaders.Count == 1 ? "person" : "people")
+            <text>· from @Model.Uploaders.Count @(Model.Uploaders.Count == 1 ? "person" : "people")</text>
         }
     </p>
     @if (Model.ExpiresSoon)
