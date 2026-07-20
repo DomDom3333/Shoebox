@@ -1,8 +1,9 @@
-/* GroupPhoto. "Shoebox of prints."
+/* Shoebox. "A shoebox of prints."
    White paper, near-black ink, one marigold accent, and a hard-stop warm
    filmic spectrum hairline. Editorial serif for display, plain system sans
-   for UI. Square corners and 1px borders, no soft shadows. Light-only by
-   design: prints live on paper. */
+   for UI. Square corners and 1px borders, no soft shadows. Ships a dark
+   theme (the darkroom) via [data-theme="dark"], resolved from the viewer's
+   system preference with a manual toggle. */
 
 @font-face {
   font-family: "Instrument Serif";
@@ -25,6 +26,7 @@
   --paper-dim: #f4f4f2;
   --ink: #191817;
   --ink-soft: #4c4a47;
+  --ink-hover: #000000;
   --muted: #807d78;
   --line: #dedcd7;
   --line-strong: #191817;
@@ -41,9 +43,24 @@
       #35786e 0 20%, #6d8748 20% 40%, #dda838 40% 60%, #cf7635 60% 80%, #b0452e 80% 100%);
 }
 
+/* The darkroom. Paper goes to warm near-black, ink to warm off-white; the
+   marigold accent and the filmic spectrum are left alone, they read on both. */
+:root[data-theme="dark"] {
+  --paper: #171614;
+  --paper-dim: #211f1c;
+  --ink: #ece8e0;
+  --ink-soft: #b7b2a8;
+  --ink-hover: #ffffff;
+  --muted: #8d887e;
+  --line: #34312b;
+  --line-strong: #ece8e0;
+  --danger: #e5675a;
+  --ok: #6fbf87;
+}
+
 * { box-sizing: border-box; }
 
-::selection { background: #f9e28d; color: var(--ink); }
+::selection { background: #f9e28d; color: #191817; }
 
 html { font-size: 16px; }
 
@@ -92,6 +109,31 @@ body {
 .brand em { font-style: italic; }
 
 .header-actions { display: flex; gap: 0.6rem; }
+
+.header-right { display: flex; align-items: center; gap: 0.6rem; }
+
+/* square icon buttons: theme toggle + GitHub link */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+.icon-btn:hover { background: var(--paper-dim); }
+.icon-btn svg { width: 1.15rem; height: 1.15rem; display: block; }
+
+.theme-toggle .icon-moon { display: inline-flex; }
+.theme-toggle .icon-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-sun { display: inline-flex; }
 
 .container {
   flex: 1;
@@ -168,7 +210,7 @@ a { color: var(--ink); }
 .btn:active { transform: translateY(1px); }
 
 .btn-primary { background: var(--ink); color: var(--paper); }
-.btn-primary:hover { background: #000; }
+.btn-primary:hover { background: var(--ink-hover); }
 
 .btn-ghost { background: var(--paper); color: var(--ink); }
 .btn-ghost:hover { background: var(--paper-dim); }
@@ -315,8 +357,10 @@ input[type="checkbox"] { accent-color: var(--ink); }
   margin: 1rem 0;
   border: 1px solid;
 }
-.banner.warn { background: #fdf6e3; border-color: #d9b23a; }
-.banner.success { background: #eef6ef; border-color: #7cb98b; }
+.banner.warn { background: #fdf6e3; border-color: #d9b23a; color: #5a4a12; }
+.banner.success { background: #eef6ef; border-color: #7cb98b; color: #22492f; }
+:root[data-theme="dark"] .banner.warn { background: #2a2410; border-color: #6b5a1e; color: #ecd9a2; }
+:root[data-theme="dark"] .banner.success { background: #142319; border-color: #2f5b3d; color: #a9d9b6; }
 
 .admin-link { margin-top: 0.55rem; font-family: var(--mono); font-size: 0.8rem; }
 
@@ -330,6 +374,7 @@ input[type="checkbox"] { accent-color: var(--ink); }
   transition: border-color 0.12s, background 0.12s;
 }
 .upload-card:has(.dropzone.dragover) { border-color: var(--ink); background: #fdf6e3; }
+:root[data-theme="dark"] .upload-card:has(.dropzone.dragover) { background: #2a2410; }
 
 .upload-row {
   display: flex;
