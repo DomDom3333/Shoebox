@@ -6,14 +6,10 @@ namespace GroupPhoto.Web.Pages.Pool;
 
 public class AdminModel(PoolService pools, PoolAccessService access, ShareLinkService links) : PageModel
 {
-    public (int Days, string Text)[] ExpiryChoices { get; } =
-    [
-        (0, "Never"),
-        (30, "In 1 month"),
-        (90, "In 3 months"),
-        (180, "In 6 months"),
-        (365, "In 1 year"),
-    ];
+    // Sentinel expiry choice meaning "leave the current expiry untouched".
+    private const int KeepCurrent = -1;
+
+    public List<(int Days, string Text)> ExpiryChoices { get; private set; } = [];
 
     public Data.Pool Pool { get; set; } = null!;
     public string ShareUrl { get; set; } = "";
@@ -70,7 +66,12 @@ public class AdminModel(PoolService pools, PoolAccessService access, ShareLinkSe
             return RedirectToPage(new { code });
         }
 
-        var expiresAt = expiryDays > 0 ? DateTime.UtcNow.AddDays(expiryDays) : (DateTime?)null;
+        DateTime? expiresAt = expiryDays switch
+        {
+            KeepCurrent => pool.ExpiresAt,                    // leave the existing expiry as-is
+            > 0 => DateTime.UtcNow.AddDays(expiryDays),       // set a new expiry from today
+            _ => null,                                        // 0 = Never
+        };
         await pools.UpdateAsync(pool, name, description, expiresAt, changePassword, newPassword);
         return RedirectToPage(new { code, saved = 1 });
     }
@@ -110,5 +111,24 @@ public class AdminModel(PoolService pools, PoolAccessService access, ShareLinkSe
         Pool = pool;
         ShareUrl = links.PoolUrl(HttpContext, pool);
         AdminUrl = links.AdminUrl(HttpContext, pool);
+
+        // When the pool already has an expiry, default the dropdown to "Keep current" so
+        // saving other settings never silently clears it.
+        ExpiryChoices = [];
+        if (pool.ExpiresAt is { } exp)
+        {
+            ExpiryChoices.Add((KeepCurrent, $"Keep current ({exp:d MMM yyyy})"));
+            SelectedExpiryDays = KeepCurrent;
+        }
+        else
+        {
+            SelectedExpiryDays = 0;
+        }
+
+        ExpiryChoices.Add((0, "Never"));
+        ExpiryChoices.Add((30, "In 1 month"));
+        ExpiryChoices.Add((90, "In 3 months"));
+        ExpiryChoices.Add((180, "In 6 months"));
+        ExpiryChoices.Add((365, "In 1 year"));
     }
 }

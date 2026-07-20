@@ -30,7 +30,7 @@
     </p>
     @if (Model.ExpiresSoon)
     {
-        <p class="banner warn">⏳ This pool will be deleted on @(Model.Pool.ExpiresAt?.ToString("d MMM yyyy")) — download what you want to keep.</p>
+        <p class="banner warn">This pool will be deleted on @(Model.Pool.ExpiresAt?.ToString("d MMM yyyy")) — download what you want to keep.</p>
     }
 </div>
 
@@ -42,7 +42,7 @@
                    value="@Model.UploaderName" />
         </label>
         <div class="upload-actions">
-            <button type="button" class="btn btn-primary" id="pick-files">＋ Add photos</button>
+            <button type="button" class="btn btn-primary" id="pick-files">Add photos</button>
             <input type="file" id="file-input" accept="image/*,.heic,.heif" multiple hidden />
         </div>
     </div>
@@ -62,15 +62,15 @@
         </select>
     </label>
     <div class="download-buttons">
-        <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=all">⬇ Download all</a>
-        <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=others" title="Everything except your own uploads">⬇ Download others'</a>
+        <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=all">Download all</a>
+        <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=others" title="Everything except your own uploads">Download others'</a>
     </div>
 </section>
 
 @if (Model.Photos.Count == 0)
 {
     <div class="empty-state">
-        <p>No photos yet — be the first! 🎉</p>
+        <p>No photos yet — be the first!</p>
     </div>
 }
 
@@ -85,7 +85,7 @@
             }
             else
             {
-                <div class="no-thumb" title="Preview not available for this format">🖼️<span>@photo.FileName</span></div>
+                <div class="no-thumb" title="Preview not available for this file"><span>@photo.FileName</span></div>
             }
             <figcaption>
                 <span class="uploader">@photo.UploaderName @(photo.Mine ? "· you" : "")</span>
@@ -105,7 +105,7 @@
     <button type="button" class="lb-next" title="Next">›</button>
     <div class="lb-bar">
         <span id="lightbox-caption"></span>
-        <a id="lightbox-download" class="btn btn-ghost" download>⬇ Download</a>
+        <a id="lightbox-download" class="btn btn-ghost" download>Download</a>
     </div>
 </div>
 

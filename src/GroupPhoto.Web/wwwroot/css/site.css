@@ -224,15 +224,13 @@ input:focus, textarea:focus, select:focus {
 
 .tile .no-thumb {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
   color: var(--muted);
   padding: 0.5rem;
   text-align: center;
 }
-.tile .no-thumb span { font-size: 0.7rem; word-break: break-all; }
+.tile .no-thumb span { font-size: 0.75rem; word-break: break-all; }
 
 .tile figcaption {
   position: absolute;
