@@ -1,0 +1,81 @@
+@page "/p/{code}/admin"
+@model GroupPhoto.Web.Pages.Pool.AdminModel
+@{
+    ViewData["Title"] = $"Manage · {Model.Pool.Name}";
+}
+
+@section HeaderActions {
+    <div class="header-actions">
+        <a class="btn btn-ghost" href="/p/@Model.Pool.Code">← Back to gallery</a>
+    </div>
+}
+
+<div class="narrow">
+    <h1>Manage “@Model.Pool.Name”</h1>
+
+    @if (Model.JustCreated)
+    {
+        <div class="banner success">
+            🎉 Your pool is ready! <strong>Bookmark this admin link</strong> — it's the only way to manage the pool:
+            <input type="text" readonly value="@Model.AdminUrl" class="admin-link" onclick="this.select()" />
+        </div>
+    }
+
+    <section class="card">
+        <h2>Share</h2>
+        <p>Send this link or let people scan the QR code:</p>
+        <div class="share-link-row">
+            <input type="text" readonly value="@Model.ShareUrl" onclick="this.select()" />
+        </div>
+        <img src="/api/p/@Model.Pool.Code/qr" alt="QR code for pool link" class="qr" />
+        <p class="pool-meta">Pool code: <strong class="code">@Model.Pool.Code</strong></p>
+    </section>
+
+    <section class="card form-stack">
+        <h2>Settings</h2>
+        <form method="post" asp-page-handler="Update">
+            <label>
+                Pool name
+                <input type="text" name="name" maxlength="120" required value="@Model.Pool.Name" />
+            </label>
+            <label>
+                Description
+                <textarea name="description" maxlength="2000" rows="2">@Model.Pool.Description</textarea>
+            </label>
+            <label>
+                Automatically delete
+                <select name="expiryDays">
+                    @foreach (var (days, text) in Model.ExpiryChoices)
+                    {
+                        <option value="@days" selected="@(days == Model.SelectedExpiryDays)">@text</option>
+                    }
+                </select>
+            </label>
+            @if (Model.Pool.ExpiresAt is { } exp)
+            {
+                <p class="muted">Currently scheduled for deletion on @exp.ToString("d MMM yyyy").</p>
+            }
+            <label class="checkbox">
+                <input type="checkbox" name="changePassword" value="true" /> Change password
+            </label>
+            <label>
+                New password <span class="muted">(leave empty to remove the password)</span>
+                <input type="password" name="newPassword" maxlength="200" autocomplete="new-password" />
+            </label>
+            <button type="submit" class="btn btn-primary">Save changes</button>
+        </form>
+        @if (Model.Saved)
+        {
+            <p class="success-text">Saved.</p>
+        }
+    </section>
+
+    <section class="card danger-zone">
+        <h2>Danger zone</h2>
+        <p>This deletes the pool and every photo in it, permanently.</p>
+        <form method="post" asp-page-handler="Delete"
+              onsubmit="return confirm('Delete this pool and ALL its photos? This cannot be undone.');">
+            <button type="submit" class="btn btn-danger">Delete pool</button>
+        </form>
+    </section>
+</div>

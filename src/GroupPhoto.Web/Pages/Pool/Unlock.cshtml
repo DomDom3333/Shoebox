@@ -1,0 +1,22 @@
+@page "/p/{code}/unlock"
+@model GroupPhoto.Web.Pages.Pool.UnlockModel
+@{
+    ViewData["Title"] = Model.PoolName;
+}
+
+<div class="narrow">
+    <div class="card form-stack unlock-card">
+        <h1>🔒 @Model.PoolName</h1>
+        <p>This pool is password protected. Enter the password once and this device stays unlocked.</p>
+
+        <form method="post">
+            <input type="password" name="password" autocomplete="current-password" autofocus
+                   placeholder="Pool password" required />
+            @if (Model.WrongPassword)
+            {
+                <p class="error">That password isn't right — try again.</p>
+            }
+            <button type="submit" class="btn btn-primary">Unlock pool</button>
+        </form>
+    </div>
+</div>

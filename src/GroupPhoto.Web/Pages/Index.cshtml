@@ -1,0 +1,36 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "";
+}
+
+<div class="hero">
+    <h1>Everyone's photos.<br />One pool.</h1>
+    <p class="lead">
+        Collect photos from a wedding, festival or trip in one shared pool.
+        No accounts, no app — just a link.
+    </p>
+</div>
+
+<div class="home-grid">
+    <section class="card">
+        <h2>Join a pool</h2>
+        <p>Got a code or link from a friend? Enter the code:</p>
+        <form method="post" asp-page-handler="Join" class="join-form">
+            <input type="text" name="code" placeholder="e.g. K7MPX2WQ" autocomplete="off"
+                   autocapitalize="characters" spellcheck="false" maxlength="16" required
+                   value="@Model.Code" class="code-input" />
+            <button type="submit" class="btn btn-primary">Open pool</button>
+        </form>
+        @if (Model.CodeNotFound)
+        {
+            <p class="error">No pool with that code — double-check it and try again.</p>
+        }
+    </section>
+
+    <section class="card">
+        <h2>Start a pool</h2>
+        <p>Create a pool for your event and share the link or QR code with everyone.</p>
+        <a href="/Create" class="btn btn-primary">Create a pool</a>
+    </section>
+</div>

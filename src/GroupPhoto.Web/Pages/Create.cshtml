@@ -1,0 +1,47 @@
+@page
+@model CreateModel
+@{
+    ViewData["Title"] = "Create a pool";
+}
+
+<div class="narrow">
+    <h1>Create a pool</h1>
+    <p class="lead">Set it up once, then share the link — everyone can start adding photos right away.</p>
+
+    <form method="post" class="card form-stack">
+        <label>
+            Pool name <span class="required">*</span>
+            <input type="text" name="name" maxlength="120" required placeholder="e.g. Anna &amp; Ben's Wedding"
+                   value="@Model.Name" />
+        </label>
+
+        <label>
+            Description <span class="muted">(optional)</span>
+            <textarea name="description" maxlength="2000" rows="2"
+                      placeholder="A note shown at the top of the gallery">@Model.Description</textarea>
+        </label>
+
+        <label>
+            Password <span class="muted">(optional — leave empty for an open pool)</span>
+            <input type="password" name="password" maxlength="200" autocomplete="new-password"
+                   placeholder="Guests will need this once per device" />
+        </label>
+
+        <label>
+            Automatically delete after
+            <select name="expiryDays">
+                @foreach (var (days, text) in Model.ExpiryChoices)
+                {
+                    <option value="@days" selected="@(days == Model.SelectedExpiryDays)">@text</option>
+                }
+            </select>
+        </label>
+
+        @if (Model.Error is not null)
+        {
+            <p class="error">@Model.Error</p>
+        }
+
+        <button type="submit" class="btn btn-primary">Create pool</button>
+    </form>
+</div>

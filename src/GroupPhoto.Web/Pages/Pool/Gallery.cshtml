@@ -1,0 +1,125 @@
+@page "/p/{code}"
+@model GroupPhoto.Web.Pages.Pool.GalleryModel
+@{
+    ViewData["Title"] = Model.Pool.Name;
+}
+
+@section HeaderActions {
+    <div class="header-actions">
+        @if (Model.IsAdmin)
+        {
+            <a class="btn btn-ghost" href="/p/@Model.Pool.Code/admin">Manage</a>
+        }
+        <button type="button" class="btn btn-ghost" id="share-btn">Share</button>
+    </div>
+}
+
+<div class="pool-head">
+    <h1>@Model.Pool.Name</h1>
+    @if (!string.IsNullOrEmpty(Model.Pool.Description))
+    {
+        <p class="pool-desc">@Model.Pool.Description</p>
+    }
+    <p class="pool-meta">
+        Pool code: <strong class="code">@Model.Pool.Code</strong>
+        · @Model.Photos.Count photo@(Model.Photos.Count == 1 ? "" : "s")
+        @if (Model.Uploaders.Count > 0)
+        {
+            <text>· from @Model.Uploaders.Count</text> @(Model.Uploaders.Count == 1 ? "person" : "people")
+        }
+    </p>
+    @if (Model.ExpiresSoon)
+    {
+        <p class="banner warn">⏳ This pool will be deleted on @(Model.Pool.ExpiresAt?.ToString("d MMM yyyy")) — download what you want to keep.</p>
+    }
+</div>
+
+<section class="card upload-card" id="upload-card">
+    <div class="upload-row">
+        <label class="uploader-name-label">
+            Uploading as
+            <input type="text" id="uploader-name" maxlength="80" placeholder="Your name"
+                   value="@Model.UploaderName" />
+        </label>
+        <div class="upload-actions">
+            <button type="button" class="btn btn-primary" id="pick-files">＋ Add photos</button>
+            <input type="file" id="file-input" accept="image/*,.heic,.heif" multiple hidden />
+        </div>
+    </div>
+    <div class="dropzone" id="dropzone">…or drag &amp; drop photos anywhere on this page</div>
+    <ul class="upload-progress" id="upload-progress"></ul>
+</section>
+
+<section class="gallery-tools">
+    <label class="filter">
+        Show:
+        <select id="uploader-filter">
+            <option value="">Everyone (@Model.Photos.Count)</option>
+            @foreach (var uploader in Model.Uploaders)
+            {
+                <option value="@uploader.Name">@uploader.Name (@uploader.Count)</option>
+            }
+        </select>
+    </label>
+    <div class="download-buttons">
+        <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=all">⬇ Download all</a>
+        <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=others" title="Everything except your own uploads">⬇ Download others'</a>
+    </div>
+</section>
+
+@if (Model.Photos.Count == 0)
+{
+    <div class="empty-state">
+        <p>No photos yet — be the first! 🎉</p>
+    </div>
+}
+
+<div class="gallery" id="gallery">
+    @foreach (var photo in Model.Photos)
+    {
+        <figure class="tile @(photo.Mine ? "mine" : "")" data-id="@photo.Id" data-uploader="@photo.UploaderName"
+                data-original="/api/photos/@photo.Id/original" data-filename="@photo.FileName">
+            @if (photo.HasThumbnail)
+            {
+                <img src="/api/photos/@photo.Id/thumb" loading="lazy" alt="@photo.FileName" />
+            }
+            else
+            {
+                <div class="no-thumb" title="Preview not available for this format">🖼️<span>@photo.FileName</span></div>
+            }
+            <figcaption>
+                <span class="uploader">@photo.UploaderName @(photo.Mine ? "· you" : "")</span>
+                @if (photo.Mine || Model.IsAdmin)
+                {
+                    <button type="button" class="delete-btn" title="Delete photo">✕</button>
+                }
+            </figcaption>
+        </figure>
+    }
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+    <button type="button" class="lb-close" title="Close">✕</button>
+    <button type="button" class="lb-prev" title="Previous">‹</button>
+    <img id="lightbox-img" alt="" />
+    <button type="button" class="lb-next" title="Next">›</button>
+    <div class="lb-bar">
+        <span id="lightbox-caption"></span>
+        <a id="lightbox-download" class="btn btn-ghost" download>⬇ Download</a>
+    </div>
+</div>
+
+<dialog id="share-dialog" class="share-dialog">
+    <h2>Share this pool</h2>
+    <p>Anyone with the link can join@(Model.Pool.HasPassword ? " (they'll need the password)" : "").</p>
+    <img src="/api/p/@Model.Pool.Code/qr" alt="QR code for pool link" class="qr" />
+    <div class="share-link-row">
+        <input type="text" readonly id="share-url" value="@Model.ShareUrl" />
+        <button type="button" class="btn btn-primary" id="copy-link">Copy</button>
+    </div>
+    <button type="button" class="btn btn-ghost" id="share-close">Close</button>
+</dialog>
+
+@section Scripts {
+    <script src="~/js/gallery.js" asp-append-version="true"></script>
+}
