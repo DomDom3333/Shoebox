@@ -6,8 +6,9 @@
 
 <div class="narrow">
     <div class="card form-stack unlock-card">
-        <h1>@Model.PoolName</h1>
-        <p>This pool is password protected. Enter the password once and this device stays unlocked.</p>
+        <p class="kicker">A private pool</p>
+        <h1><em>@Model.PoolName</em></h1>
+        <p>Whoever invited you has the password. Enter it once — this device stays unlocked.</p>
 
         <form method="post">
             <input type="password" name="password" autocomplete="current-password" autofocus

@@ -1,30 +1,37 @@
 @page
 @model CreateModel
 @{
-    ViewData["Title"] = "Create a pool";
+    ViewData["Title"] = "Start a pool";
 }
 
 <div class="narrow">
-    <h1>Create a pool</h1>
-    <p class="lead">Set it up once, then share the link — everyone can start adding photos right away.</p>
+    <h1>Start a <em>pool</em>.</h1>
+    <p class="lead">
+        One pool per event. You'll get a share link, a QR code for the table,
+        and a private admin link — that's the whole setup.
+    </p>
 
     <form method="post" class="card form-stack">
         <label>
             Pool name <span class="required">*</span>
-            <input type="text" name="name" maxlength="120" required placeholder="e.g. Anna &amp; Ben's Wedding"
+            <input type="text" name="name" maxlength="120" required placeholder="Anna &amp; Ben's Wedding"
                    value="@Model.Name" />
         </label>
 
         <label>
             Description <span class="muted">(optional)</span>
             <textarea name="description" maxlength="2000" rows="2"
-                      placeholder="A note shown at the top of the gallery">@Model.Description</textarea>
+                      placeholder="A line shown at the top of the gallery">@Model.Description</textarea>
+            <span class="hint">Something like &ldquo;Share your photos from the big day!&rdquo;</span>
         </label>
 
         <label>
-            Password <span class="muted">(optional — leave empty for an open pool)</span>
-            <input type="password" name="password" maxlength="200" autocomplete="new-password"
-                   placeholder="Guests will need this once per device" />
+            Password <span class="muted">(optional)</span>
+            <input type="password" name="password" maxlength="200" autocomplete="new-password" />
+            <span class="hint">
+                Leave empty and anyone with the link gets in. Add one if the link might travel
+                further than the guest list — guests only enter it once per device.
+            </span>
         </label>
 
         <label>
@@ -35,6 +42,10 @@
                     <option value="@days" selected="@(days == Model.SelectedExpiryDays)">@text</option>
                 }
             </select>
+            <span class="hint">
+                Pools are for the weeks around an event, not forever. Let this one clean up
+                after itself once everyone has downloaded what they love.
+            </span>
         </label>
 
         @if (Model.Error is not null)

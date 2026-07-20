@@ -195,13 +195,31 @@ input:focus-visible, textarea:focus-visible, select:focus-visible,
 
 input[type="checkbox"] { accent-color: var(--ink); }
 
-.form-stack label { display: block; margin-bottom: 1rem; font-weight: 600; font-size: 0.95rem; }
+.form-stack label { display: block; margin-bottom: 1.15rem; font-weight: 600; font-size: 0.95rem; }
 .form-stack label input, .form-stack label textarea, .form-stack label select {
   margin-top: 0.35rem; font-weight: normal;
 }
 .form-stack .checkbox { font-weight: normal; }
 .form-stack .checkbox input { width: auto; margin-right: 0.4rem; }
 .form-stack button[type="submit"] { margin-top: 0.5rem; }
+
+.hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-weight: normal;
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.kicker {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.4rem;
+}
 
 /* ---------- Home ---------- */
 
@@ -272,7 +290,13 @@ input[type="checkbox"] { accent-color: var(--ink); }
 /* ---------- Pool head ---------- */
 
 .pool-head { max-width: 720px; margin-bottom: 1.5rem; }
-.pool-desc { color: var(--ink-soft); margin: 0.2rem 0 0.5rem; font-size: 1.02rem; }
+.pool-desc {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-soft);
+  margin: 0.2rem 0 0.5rem;
+  font-size: 1.25rem;
+}
 .pool-meta { color: var(--muted); font-size: 0.88rem; margin: 0.3rem 0 0; }
 .code {
   font-family: var(--mono);
@@ -297,7 +321,15 @@ input[type="checkbox"] { accent-color: var(--ink); }
 
 /* ---------- Upload ---------- */
 
-.upload-card { padding: 1.25rem 1.5rem; }
+/* dashed = "things can be dropped here", same language as the empty state */
+.upload-card {
+  padding: 1.25rem 1.5rem;
+  border-style: dashed;
+  border-color: #b9b6b0;
+  transition: border-color 0.12s, background 0.12s;
+}
+.upload-card:has(.dropzone.dragover) { border-color: var(--ink); background: #fdf6e3; }
+
 .upload-row {
   display: flex;
   gap: 1rem;
@@ -308,16 +340,11 @@ input[type="checkbox"] { accent-color: var(--ink); }
 .uploader-name-label input { margin-top: 0.35rem; font-weight: normal; }
 
 .dropzone {
-  margin-top: 0.9rem;
-  border: 1px dashed #b9b6b0;
-  border-radius: 8px;
-  padding: 0.7rem;
-  text-align: center;
+  margin: 0.6rem 0 0;
   color: var(--muted);
-  font-size: 0.9rem;
-  transition: border-color 0.12s, background 0.12s;
+  font-size: 0.88rem;
 }
-.dropzone.dragover { border-color: var(--ink); background: #fdf6e3; color: var(--ink); }
+.dropzone.dragover { color: var(--ink); }
 
 .upload-progress { list-style: none; margin: 0.6rem 0 0; padding: 0; font-size: 0.85rem; }
 .upload-progress li {
@@ -517,14 +544,29 @@ input[type="checkbox"] { accent-color: var(--ink); }
 .share-dialog::backdrop { background: rgba(25, 24, 23, 0.45); }
 .share-dialog h2 { margin-top: 0; }
 
+/* the QR is framed like one of the prints */
 .qr {
   max-width: 216px;
   width: 100%;
   margin: 0.9rem auto;
   display: block;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 0.5rem;
+  border-radius: 4px;
+  padding: 0.6rem 0.6rem 1.4rem;
+  box-shadow: 0 1px 2px rgba(25, 24, 23, 0.07);
+  transform: rotate(0.6deg);
+}
+
+.share-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem 2rem;
+  align-items: center;
+}
+.share-grid .qr { margin: 0; }
+@media (max-width: 600px) {
+  .share-grid { grid-template-columns: 1fr; }
+  .share-grid .qr { margin: 0.75rem auto 0; }
 }
 
 .share-link-row { display: flex; gap: 0.5rem; margin: 0.8rem 0; }

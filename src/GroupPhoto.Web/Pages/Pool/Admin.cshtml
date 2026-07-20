@@ -23,12 +23,17 @@
 
     <section class="card">
         <h2>Share</h2>
-        <p>Send this link or let people scan the QR code:</p>
-        <div class="share-link-row">
-            <input type="text" readonly value="@Model.ShareUrl" onclick="this.select()" />
+        <div class="share-grid">
+            <div>
+                <p>Send the link, or put the QR code where everyone will see it —
+                   on the table, by the door, taped to the cooler.</p>
+                <div class="share-link-row">
+                    <input type="text" readonly value="@Model.ShareUrl" onclick="this.select()" />
+                </div>
+                <p class="pool-meta">Or join by code: <strong class="code">@Model.Pool.Code</strong></p>
+            </div>
+            <img src="/api/p/@Model.Pool.Code/qr" alt="QR code for pool link" class="qr" />
         </div>
-        <img src="/api/p/@Model.Pool.Code/qr" alt="QR code for pool link" class="qr" />
-        <p class="pool-meta">Pool code: <strong class="code">@Model.Pool.Code</strong></p>
     </section>
 
     <section class="card form-stack">
