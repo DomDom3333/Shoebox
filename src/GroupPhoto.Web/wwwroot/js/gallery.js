@@ -160,16 +160,16 @@
     if (!tiles.length) return;
     currentIndex = (index + tiles.length) % tiles.length;
     const tile = tiles[currentIndex];
-    // Some browsers (non-Safari) can't render a HEIC/HEIF original inline. If the full
-    // image fails to load, fall back to the generated WebP thumbnail so the lightbox
-    // still shows something instead of a broken image. The Download button always
-    // fetches the true original regardless.
-    const thumbUrl = tile.dataset.original.replace(/\/original$/, "/thumb");
+    // The lightbox shows the web-safe "display" proxy — full-screen sharp but far smaller
+    // than a 50MB phone original, and viewable in every browser (including HEIC). If it
+    // somehow fails, fall back to the thumbnail rather than a broken image. The Download
+    // button always fetches the true original.
+    const base = tile.dataset.original.replace(/\/original$/, "");
     lbImg.onerror = () => {
       lbImg.onerror = null;
-      if (tile.dataset.original !== thumbUrl) lbImg.src = thumbUrl;
+      lbImg.src = base + "/thumb";
     };
-    lbImg.src = tile.dataset.original;
+    lbImg.src = base + "/display";
     lbCaption.textContent = `${tile.dataset.uploader} · ${tile.dataset.filename}`;
     lbDownload.href = tile.dataset.original + "?download=true";
     lightbox.hidden = false;

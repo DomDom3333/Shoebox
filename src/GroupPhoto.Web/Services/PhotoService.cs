@@ -52,6 +52,7 @@ public class PhotoService(
 
         Directory.CreateDirectory(paths.OriginalsDirectory(pool.Id));
         Directory.CreateDirectory(paths.ThumbsDirectory(pool.Id));
+        Directory.CreateDirectory(paths.DisplaysDirectory(pool.Id));
 
         // Stream to a temp file while hashing so dedupe never needs the file in memory.
         var tempPath = Path.Combine(paths.OriginalsDirectory(pool.Id), $"upload_{Guid.NewGuid():N}.tmp");
@@ -106,7 +107,8 @@ public class PhotoService(
         var originalPath = paths.OriginalFile(pool.Id, photo.Id, photo.Extension);
         File.Move(tempPath, originalPath);
 
-        var info = await thumbnails.ProcessAsync(originalPath, paths.ThumbFile(pool.Id, photo.Id), ct);
+        var info = await thumbnails.ProcessAsync(
+            originalPath, paths.ThumbFile(pool.Id, photo.Id), paths.DisplayFile(pool.Id, photo.Id), ct);
         if (info is not null)
         {
             photo.Width = info.Width;
@@ -127,6 +129,7 @@ public class PhotoService(
 
         DeleteIfExists(paths.OriginalFile(photo.PoolId, photo.Id, photo.Extension));
         DeleteIfExists(paths.ThumbFile(photo.PoolId, photo.Id));
+        DeleteIfExists(paths.DisplayFile(photo.PoolId, photo.Id));
     }
 
     private static void DeleteIfExists(string path)

@@ -14,6 +14,7 @@ public static class PhotoEndpoints
 
         api.MapPost("/p/{code}/photos", UploadAsync).DisableAntiforgery();
         api.MapGet("/photos/{id:guid}/thumb", ServeThumbAsync);
+        api.MapGet("/photos/{id:guid}/display", ServeDisplayAsync);
         api.MapGet("/photos/{id:guid}/original", ServeOriginalAsync);
         api.MapDelete("/photos/{id:guid}", DeletePhotoAsync);
         api.MapGet("/p/{code}/zip", DownloadZipAsync);
@@ -86,6 +87,34 @@ public static class PhotoEndpoints
 
         context.Response.Headers.CacheControl = "private, max-age=86400";
         return Results.File(thumbPath, "image/webp");
+    }
+
+    private static async Task<IResult> ServeDisplayAsync(
+        Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths)
+    {
+        var photo = await FindAccessiblePhotoAsync(id, context, db, access);
+        if (photo is null)
+        {
+            return Results.NotFound();
+        }
+
+        context.Response.Headers.CacheControl = "private, max-age=86400";
+
+        // Serve the web-safe display proxy when one was generated; otherwise the original
+        // is already web-viewable and no larger than the display box, so serve it directly.
+        var displayPath = paths.DisplayFile(photo.PoolId, photo.Id);
+        if (File.Exists(displayPath))
+        {
+            return Results.File(displayPath, "image/webp", enableRangeProcessing: true);
+        }
+
+        var originalPath = paths.OriginalFile(photo.PoolId, photo.Id, photo.Extension);
+        if (!File.Exists(originalPath))
+        {
+            return Results.NotFound();
+        }
+
+        return Results.File(originalPath, photo.ContentType, enableRangeProcessing: true);
     }
 
     private static async Task<IResult> ServeOriginalAsync(

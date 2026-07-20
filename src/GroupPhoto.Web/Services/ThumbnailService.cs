@@ -7,7 +7,7 @@ using ISExif = SixLabors.ImageSharp.Metadata.Profiles.Exif;
 
 namespace GroupPhoto.Web.Services;
 
-public record ImageInfo(int Width, int Height, DateTime? TakenAt, bool ThumbnailCreated);
+public record ImageInfo(int Width, int Height, DateTime? TakenAt, bool ThumbnailCreated, bool DisplayCreated);
 
 public class ThumbnailService(IOptions<GroupPhotoOptions> options, ILogger<ThumbnailService> logger)
 {
@@ -16,12 +16,15 @@ public class ThumbnailService(IOptions<GroupPhotoOptions> options, ILogger<Thumb
         new(StringComparer.OrdinalIgnoreCase) { ".heic", ".heif" };
 
     /// <summary>
-    /// Reads dimensions and EXIF capture date from the original and writes a WebP thumbnail.
-    /// ImageSharp handles the common formats; HEIC/HEIF (and anything else ImageSharp can't
-    /// decode) fall back to Magick.NET. Returns null only when neither can read the file —
-    /// the upload still succeeds and the gallery shows a placeholder tile.
+    /// Reads dimensions and EXIF capture date from the original and writes the derived
+    /// renditions: a small WebP thumbnail for the grid and, when worthwhile, a larger
+    /// web-safe WebP "display" proxy for the lightbox. ImageSharp handles the common
+    /// formats; HEIC/HEIF (and anything else ImageSharp can't decode) fall back to
+    /// Magick.NET. Returns null only when neither can read the file — the upload still
+    /// succeeds and the gallery shows a placeholder tile.
     /// </summary>
-    public async Task<ImageInfo?> ProcessAsync(string originalPath, string thumbPath, CancellationToken ct = default)
+    public async Task<ImageInfo?> ProcessAsync(string originalPath, string thumbPath, string displayPath,
+        CancellationToken ct = default)
     {
         var extension = Path.GetExtension(originalPath);
 
@@ -30,7 +33,7 @@ public class ThumbnailService(IOptions<GroupPhotoOptions> options, ILogger<Thumb
         {
             try
             {
-                return await ProcessWithImageSharpAsync(originalPath, thumbPath, ct);
+                return await ProcessWithImageSharpAsync(originalPath, thumbPath, displayPath, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -42,7 +45,7 @@ public class ThumbnailService(IOptions<GroupPhotoOptions> options, ILogger<Thumb
 
         try
         {
-            return await ProcessWithMagickAsync(originalPath, thumbPath, ct);
+            return await ProcessWithMagickAsync(originalPath, thumbPath, displayPath, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -51,7 +54,8 @@ public class ThumbnailService(IOptions<GroupPhotoOptions> options, ILogger<Thumb
         }
     }
 
-    private async Task<ImageInfo> ProcessWithImageSharpAsync(string originalPath, string thumbPath, CancellationToken ct)
+    private async Task<ImageInfo> ProcessWithImageSharpAsync(string originalPath, string thumbPath,
+        string displayPath, CancellationToken ct)
     {
         using var image = await Image.LoadAsync(originalPath, ct);
 
@@ -62,6 +66,18 @@ public class ThumbnailService(IOptions<GroupPhotoOptions> options, ILogger<Thumb
         image.Mutate(x => x.AutoOrient());
         var (width, height) = (image.Width, image.Height);
 
+        // Display proxy: only worth making when the (web-safe) original is larger than the
+        // display box — otherwise the lightbox just serves the original directly. Made
+        // before the thumbnail so the thumbnail downsamples from it.
+        var displaySize = options.Value.DisplaySize;
+        var displayCreated = false;
+        if (Math.Max(width, height) > displaySize)
+        {
+            image.Mutate(x => x.Resize(new ResizeOptions { Mode = ResizeMode.Max, Size = new Size(displaySize, displaySize) }));
+            await image.SaveAsync(displayPath, new WebpEncoder { Quality = 82 }, ct);
+            displayCreated = true;
+        }
+
         var size = options.Value.ThumbnailSize;
         image.Mutate(x => x.Resize(new ResizeOptions
         {
@@ -70,10 +86,11 @@ public class ThumbnailService(IOptions<GroupPhotoOptions> options, ILogger<Thumb
         }));
 
         await image.SaveAsync(thumbPath, new WebpEncoder { Quality = 78 }, ct);
-        return new ImageInfo(width, height, takenAt, ThumbnailCreated: true);
+        return new ImageInfo(width, height, takenAt, ThumbnailCreated: true, DisplayCreated: displayCreated);
     }
 
-    private async Task<ImageInfo> ProcessWithMagickAsync(string originalPath, string thumbPath, CancellationToken ct)
+    private async Task<ImageInfo> ProcessWithMagickAsync(string originalPath, string thumbPath,
+        string displayPath, CancellationToken ct)
     {
         using var image = new MagickImage(originalPath);
 
@@ -82,14 +99,19 @@ public class ThumbnailService(IOptions<GroupPhotoOptions> options, ILogger<Thumb
         image.AutoOrient();
         var (width, height) = ((int)image.Width, (int)image.Height);
 
-        var size = (uint)options.Value.ThumbnailSize;
-        // Fit within size×size, preserve aspect ratio, never upscale (Greater = only shrink).
-        image.Resize(new MagickGeometry(size, size) { Greater = true });
-
         image.Format = MagickFormat.WebP;
+
+        // These formats (HEIC/HEIF) aren't web-viewable, so always emit a display proxy —
+        // even for small images — so the lightbox has something every browser can render.
+        // Greater = only shrink, never upscale. Resize down progressively: display, then thumb.
+        image.Resize(new MagickGeometry((uint)options.Value.DisplaySize, (uint)options.Value.DisplaySize) { Greater = true });
+        image.Quality = 82;
+        await image.WriteAsync(displayPath, ct);
+
+        image.Resize(new MagickGeometry((uint)options.Value.ThumbnailSize, (uint)options.Value.ThumbnailSize) { Greater = true });
         image.Quality = 78;
         await image.WriteAsync(thumbPath, ct);
-        return new ImageInfo(width, height, takenAt, ThumbnailCreated: true);
+        return new ImageInfo(width, height, takenAt, ThumbnailCreated: true, DisplayCreated: true);
     }
 
     private static DateTime? ReadTakenAt(ISExif.ExifProfile? exif)

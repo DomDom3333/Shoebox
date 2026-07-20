@@ -12,6 +12,14 @@ public class GroupPhotoOptions
     /// <summary>Longest edge of generated thumbnails, in pixels.</summary>
     public int ThumbnailSize { get; set; } = 480;
 
+    /// <summary>
+    /// Longest edge of the web-safe "display" proxy shown in the lightbox, in pixels.
+    /// Big enough to look full-screen sharp, small enough to load fast; the untouched
+    /// original is kept for downloads. Originals already web-safe and no larger than this
+    /// are served directly instead of duplicating them.
+    /// </summary>
+    public int DisplaySize { get; set; } = 1600;
+
     /// <summary>Expiry preselected on the create form; 0 = "never" preselected.</summary>
     public int DefaultExpiryDays { get; set; } = 0;
 

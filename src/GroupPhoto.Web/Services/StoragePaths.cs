@@ -14,12 +14,16 @@ public class StoragePaths(IOptions<GroupPhotoOptions> options)
     public string PoolDirectory(Guid poolId) => Path.Combine(PoolsDirectory, poolId.ToString("N"));
     public string OriginalsDirectory(Guid poolId) => Path.Combine(PoolDirectory(poolId), "orig");
     public string ThumbsDirectory(Guid poolId) => Path.Combine(PoolDirectory(poolId), "thumb");
+    public string DisplaysDirectory(Guid poolId) => Path.Combine(PoolDirectory(poolId), "display");
 
     public string OriginalFile(Guid poolId, Guid photoId, string extension)
         => Path.Combine(OriginalsDirectory(poolId), photoId.ToString("N") + extension);
 
     public string ThumbFile(Guid poolId, Guid photoId)
         => Path.Combine(ThumbsDirectory(poolId), photoId.ToString("N") + ".webp");
+
+    public string DisplayFile(Guid poolId, Guid photoId)
+        => Path.Combine(DisplaysDirectory(poolId), photoId.ToString("N") + ".webp");
 
     public void EnsureBaseDirectories()
     {
