@@ -6,7 +6,7 @@ namespace GroupPhoto.Web.Services;
 public class ZipStreamService(StoragePaths paths)
 {
     /// <summary>
-    /// Streams the given photos as a ZIP directly into <paramref name="output"/> —
+    /// Streams the given photos as a ZIP directly into <paramref name="output"/>,
     /// no temp files, memory stays flat regardless of pool size. Photos are stored,
     /// not recompressed (they're already compressed image formats).
     /// </summary>

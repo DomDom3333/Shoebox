@@ -73,7 +73,7 @@ public class PoolAccessService(IDataProtectionProvider dataProtection, IOptions<
             }
             catch (System.Security.Cryptography.CryptographicException)
             {
-                // Tampered or from a rotated key ring — treat as no access.
+                // Tampered or from a rotated key ring; treat as no access.
             }
         }
 

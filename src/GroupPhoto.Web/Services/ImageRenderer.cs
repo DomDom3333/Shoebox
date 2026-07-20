@@ -12,7 +12,7 @@ public record ImageInfo(int Width, int Height, DateTime? TakenAt);
 public class ImageRenderer(IOptions<GroupPhotoOptions> options, ILogger<ImageRenderer> logger)
 {
     /// <summary>
-    /// Decodes the original and writes both WebP renditions — a small thumbnail for the grid
+    /// Decodes the original and writes both WebP renditions: a small thumbnail for the grid
     /// and a larger web-safe display proxy for the lightbox. Returns the source dimensions
     /// and EXIF capture date, or null when the file can't be decoded (the upload still
     /// succeeds and the gallery shows a placeholder tile).

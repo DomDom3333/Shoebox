@@ -103,7 +103,7 @@
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(JSON.parse(xhr.responseText));
         } else if (xhr.status === 401) {
-          reject(new Error("pool is locked — refresh the page"));
+          reject(new Error("pool is locked; refresh the page"));
         } else if (xhr.status === 413) {
           reject(new Error("file too large"));
         } else {
@@ -160,7 +160,7 @@
     if (!tiles.length) return;
     currentIndex = (index + tiles.length) % tiles.length;
     const tile = tiles[currentIndex];
-    // The lightbox shows the web-safe "display" proxy — full-screen sharp but far smaller
+    // The lightbox shows the web-safe "display" proxy: full-screen sharp but far smaller
     // than a 50MB phone original, and viewable in every browser (including HEIC). The
     // Download button always fetches the true original.
     const base = tile.dataset.original.replace(/\/original$/, "");

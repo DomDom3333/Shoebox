@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- a little print: white frame, photo, spectrum chin -->
-  <rect x="3.5" y="1.5" width="25" height="29" rx="2.5" fill="#ffffff" stroke="#191817" stroke-width="1.6"/>
+  <!-- a little print: white frame (square corners), photo, warm spectrum chin -->
+  <rect x="3.5" y="1.5" width="25" height="29" fill="#ffffff" stroke="#191817" stroke-width="1.6"/>
   <rect x="7" y="5" width="18" height="15" fill="#dedcd7"/>
-  <circle cx="12" cy="10" r="2.4" fill="#f2c230"/>
+  <circle cx="12" cy="10" r="2.4" fill="#dda838"/>
   <path d="M7 20 L14 12.5 L19 17.5 L22 15 L25 18 V20 Z" fill="#b9b6b0"/>
   <g>
-    <rect x="7"    y="23" width="3.6" height="2.6" fill="#1478c8"/>
-    <rect x="10.6" y="23" width="3.6" height="2.6" fill="#14996e"/>
-    <rect x="14.2" y="23" width="3.6" height="2.6" fill="#f2c230"/>
-    <rect x="17.8" y="23" width="3.6" height="2.6" fill="#ee7f18"/>
-    <rect x="21.4" y="23" width="3.6" height="2.6" fill="#d5382f"/>
+    <rect x="7"    y="23" width="3.6" height="2.6" fill="#35786e"/>
+    <rect x="10.6" y="23" width="3.6" height="2.6" fill="#6d8748"/>
+    <rect x="14.2" y="23" width="3.6" height="2.6" fill="#dda838"/>
+    <rect x="17.8" y="23" width="3.6" height="2.6" fill="#cf7635"/>
+    <rect x="21.4" y="23" width="3.6" height="2.6" fill="#b0452e"/>
   </g>
 </svg>

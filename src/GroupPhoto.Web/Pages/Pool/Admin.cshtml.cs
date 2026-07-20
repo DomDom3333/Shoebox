@@ -30,7 +30,7 @@ public class AdminModel(PoolService pools, PoolAccessService access, ShareLinkSe
         // saved. Consume a valid key into the signed admin cookie, then redirect to the
         // clean URL so the key never lingers in the address bar, browser history,
         // bookmarks or proxy/server logs. From here on, settings access is gated purely
-        // by the signed cookie — exactly like the pool-unlock flow.
+        // by the signed cookie, exactly like the pool-unlock flow.
         if (key is not null)
         {
             if (Guid.TryParse(key, out var parsedKey) && parsedKey == pool.AdminKey)
@@ -91,8 +91,8 @@ public class AdminModel(PoolService pools, PoolAccessService access, ShareLinkSe
 
     /// <summary>
     /// Loads the pool only if the caller holds a valid signed admin cookie for it.
-    /// The admin key in the URL is never accepted here — it is exchanged for the cookie
-    /// once, on GET — so settings changes can only come from an already-authorized device.
+    /// The admin key in the URL is never accepted here; it is exchanged for the cookie
+    /// once, on GET, so settings changes can only come from an already-authorized device.
     /// </summary>
     private async Task<Data.Pool?> LoadAdminPoolAsync(string code)
     {

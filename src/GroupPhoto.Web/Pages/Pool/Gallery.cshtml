@@ -30,7 +30,7 @@
     </p>
     @if (Model.ExpiresSoon)
     {
-        <p class="banner warn">This pool will be deleted on @(Model.Pool.ExpiresAt?.ToString("d MMM yyyy")) — download what you want to keep.</p>
+        <p class="banner warn">This pool will be deleted on @(Model.Pool.ExpiresAt?.ToString("d MMM yyyy")). Download what you want to keep.</p>
     }
 </div>
 
@@ -70,7 +70,7 @@
 @if (Model.Photos.Count == 0)
 {
     <div class="empty-state">
-        <p><span class="big">Nothing here yet.</span> You were there — prove it.</p>
+        <p><span class="big">Nothing here yet.</span> You were there. Prove it.</p>
     </div>
 }
 

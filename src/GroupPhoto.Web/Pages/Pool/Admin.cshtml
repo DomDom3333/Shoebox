@@ -16,7 +16,7 @@
     @if (Model.JustCreated)
     {
         <div class="banner success">
-            Your pool is ready! <strong>Bookmark this admin link</strong> — it's the only way to manage the pool:
+            Your pool is ready! <strong>Bookmark this admin link.</strong> It's the only way to manage the pool:
             <input type="text" readonly value="@Model.AdminUrl" class="admin-link" onclick="this.select()" />
         </div>
     }
@@ -25,7 +25,7 @@
         <h2>Share</h2>
         <div class="share-grid">
             <div>
-                <p>Send the link, or put the QR code where everyone will see it —
+                <p>Send the link, or put the QR code where everyone will see it:
                    on the table, by the door, taped to the cooler.</p>
                 <div class="share-link-row">
                     <input type="text" readonly value="@Model.ShareUrl" onclick="this.select()" />
