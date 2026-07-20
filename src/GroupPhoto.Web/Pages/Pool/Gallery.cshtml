@@ -75,9 +75,11 @@
 }
 
 <div class="gallery" id="gallery">
-    @foreach (var photo in Model.Photos)
+    @for (var i = 0; i < Model.Photos.Count; i++)
     {
-        <figure class="tile @(photo.Mine ? "mine" : "")" data-id="@photo.Id" data-uploader="@photo.UploaderName"
+        var photo = Model.Photos[i];
+        <figure class="tile @(photo.Mine ? "mine" : "")" style="--i: @Math.Min(i, 12)"
+                data-id="@photo.Id" data-uploader="@photo.UploaderName"
                 data-original="/api/photos/@photo.Id/original" data-filename="@photo.FileName">
             @if (photo.HasThumbnail)
             {
