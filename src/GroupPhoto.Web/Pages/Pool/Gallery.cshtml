@@ -21,7 +21,7 @@
         <p class="pool-desc">@Model.Pool.Description</p>
     }
     <p class="pool-meta">
-        Pool code: <strong class="code">@Model.Pool.Code</strong>
+        Box code: <strong class="code">@Model.Pool.Code</strong>
         · @Model.Photos.Count photo@(Model.Photos.Count == 1 ? "" : "s")
         @if (Model.Uploaders.Count > 0)
         {
@@ -30,7 +30,7 @@
     </p>
     @if (Model.ExpiresSoon)
     {
-        <p class="banner warn">This pool will be deleted on @(Model.Pool.ExpiresAt?.ToString("d MMM yyyy")). Download what you want to keep.</p>
+        <p class="banner warn">This box clears out on @(Model.Pool.ExpiresAt?.ToString("d MMM yyyy")). Grab what you want to keep.</p>
     }
 </div>
 
@@ -114,7 +114,7 @@
 </div>
 
 <dialog id="share-dialog" class="share-dialog">
-    <h2>Share this pool</h2>
+    <h2>Share this box</h2>
     <p>Anyone with the link can join@(Model.Pool.HasPassword ? " (they'll need the password)" : "").</p>
     <img src="/api/p/@Model.Pool.Code/qr" alt="QR code for pool link" class="qr" />
     <div class="share-link-row">

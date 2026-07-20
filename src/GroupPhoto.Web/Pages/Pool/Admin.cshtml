@@ -16,7 +16,7 @@
     @if (Model.JustCreated)
     {
         <div class="banner success">
-            Your pool is ready! <strong>Bookmark this admin link.</strong> It's the only way to manage the pool:
+            Your box is ready! <strong>Bookmark this admin link.</strong> It's the only way to manage the box:
             <input type="text" readonly value="@Model.AdminUrl" class="admin-link" onclick="this.select()" />
         </div>
     }
@@ -40,7 +40,7 @@
         <h2>Settings</h2>
         <form method="post" asp-page-handler="Update">
             <label>
-                Pool name
+                Box name
                 <input type="text" name="name" maxlength="120" required value="@Model.Pool.Name" />
             </label>
             <label>
@@ -58,7 +58,7 @@
             </label>
             @if (Model.Pool.ExpiresAt is { } exp)
             {
-                <p class="muted">Currently scheduled for deletion on @exp.ToString("d MMM yyyy").</p>
+                <p class="muted">Currently set to clear out on @exp.ToString("d MMM yyyy").</p>
             }
             <label class="checkbox">
                 <input type="checkbox" name="changePassword" value="true" /> Change password
@@ -77,10 +77,10 @@
 
     <section class="card danger-zone">
         <h2>Danger zone</h2>
-        <p>This deletes the pool and every photo in it, permanently.</p>
+        <p>This deletes the box and every photo in it, permanently.</p>
         <form method="post" asp-page-handler="Delete"
-              onsubmit="return confirm('Delete this pool and ALL its photos? This cannot be undone.');">
-            <button type="submit" class="btn btn-danger">Delete pool</button>
+              onsubmit="return confirm('Delete this box and ALL its photos? This cannot be undone.');">
+            <button type="submit" class="btn btn-danger">Delete box</button>
         </form>
     </section>
 </div>

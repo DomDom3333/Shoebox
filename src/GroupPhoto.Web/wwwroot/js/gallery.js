@@ -71,7 +71,7 @@
           status.className = "status ok";
           anyAdded = true;
         } else if (r && r.status === "duplicate") {
-          status.textContent = "already in pool";
+          status.textContent = "already in box";
           status.className = "status";
         } else {
           status.textContent = (r && r.reason) || "failed";
@@ -103,7 +103,7 @@
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(JSON.parse(xhr.responseText));
         } else if (xhr.status === 401) {
-          reject(new Error("pool is locked; refresh the page"));
+          reject(new Error("box is locked; refresh the page"));
         } else if (xhr.status === 413) {
           reject(new Error("file too large"));
         } else {

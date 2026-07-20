@@ -6,18 +6,18 @@
 
 <div class="narrow">
     <div class="card form-stack unlock-card">
-        <p class="kicker">A private pool</p>
+        <p class="kicker">A private box</p>
         <h1><em>@Model.PoolName</em></h1>
         <p>Whoever invited you has the password. Enter it once, and this device stays unlocked.</p>
 
         <form method="post">
             <input type="password" name="password" autocomplete="current-password" autofocus
-                   placeholder="Pool password" required />
+                   placeholder="Box password" required />
             @if (Model.WrongPassword)
             {
                 <p class="error">That password isn't right. Try again.</p>
             }
-            <button type="submit" class="btn btn-primary">Unlock pool</button>
+            <button type="submit" class="btn btn-primary">Unlock box</button>
         </form>
     </div>
 </div>

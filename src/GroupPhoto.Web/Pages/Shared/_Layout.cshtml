@@ -3,24 +3,24 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Collect everyone's photos from a wedding, festival or trip in one shared pool. No accounts, no app. Just one link." />
+    <meta name="description" content="Everyone's photos from a wedding, festival or trip, gathered in one shared box. No accounts, no app. Just one link." />
     <meta name="theme-color" content="#ffffff" />
-    <title>@(ViewData["Title"] is string t && t.Length > 0 ? $"{t} · GroupPhoto" : "GroupPhoto")</title>
+    <title>@(ViewData["Title"] is string t && t.Length > 0 ? $"{t} · Shoebox" : "Shoebox")</title>
     <link rel="icon" type="image/svg+xml" href="~/favicon.svg" />
     <link rel="icon" href="~/favicon.ico" sizes="32x32" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
     <header class="site-header">
-        <a class="brand" href="/">Group<em>Photo</em></a>
+        <a class="brand" href="/">Shoe<em>box</em></a>
         @RenderSection("HeaderActions", required: false)
     </header>
     <main class="container">
         @RenderBody()
     </main>
     <footer class="site-footer">
-        <span>GroupPhoto. Shared photo pools, no accounts needed.</span>
-        <span>Made for one weekend, not forever. Download what you love.</span>
+        <span>Shoebox. Fill a box together, take home what you love.</span>
+        <span>Made for one weekend, not forever.</span>
     </footer>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
