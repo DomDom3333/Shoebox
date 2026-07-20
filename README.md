@@ -10,11 +10,19 @@ end up scattered across a dozen phones.
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > [!IMPORTANT]
-> GroupPhoto is meant for the days and weeks around an event, not as durable storage. It runs
-> as a single instance on a single filesystem, with no replication, versioning, or built-in
-> off-site backup, and pools can be set to delete themselves. Treat it as a convenient drop
-> box to gather photos, then have people download what they want to keep. If a pool needs to
-> survive, back up the data directory yourself.
+> GroupPhoto is built for casually sharing event photos — not for sensitive data, and not as
+> durable storage.
+>
+> - **Security is deliberately lightweight.** Access is gated only by unguessable pool links
+>   and an optional shared password; there are no accounts and no hardening beyond that.
+> - **Files are stored unencrypted** on the server's filesystem. Anyone with access to the
+>   host — or to its backups — can read every uploaded image. Only use a server you trust, and
+>   don't upload anything you'd mind others seeing.
+> - **It is not durable.** A single instance on a single filesystem, with no replication,
+>   versioning, or off-site backup, and pools can be set to delete themselves.
+>
+> Treat it as a convenient drop box: gather photos, then have people download what they want to
+> keep. Back up the data directory yourself if a pool matters.
 
 ## How it works
 
@@ -167,10 +175,12 @@ Dockerfile · docker-compose.yml
 
 ## Notes and limitations
 
-- **Not long-term storage.** See the note at the top. There is no redundancy or automatic backup; back up the data directory if a pool matters, and don't rely on it as anyone's only copy.
+- **Not for sensitive images.** Files are stored unencrypted on disk, so anyone with access to the server or its backups can read them. Don't upload anything private to a host you don't fully control. See the note at the top.
+- **Not long-term storage.** There is no redundancy or automatic backup; back up the data directory if a pool matters, and don't rely on it as anyone's only copy.
+- **Lightweight security.** Access rests on unguessable links and an optional shared password — there are no accounts, rate limiting, or audit logging. It's appropriate for casual event sharing, not for protecting confidential material.
+- **The links are the credentials.** Anyone with the pool link (and password, if set) can view and upload; anyone with the admin link can manage. There is no email or account recovery.
 - **EXIF (including GPS) is preserved** on originals, and anyone in the pool can download them. Worth mentioning to privacy-conscious guests.
 - **Single instance, single filesystem.** This is deliberately simple software for an event, not a scalable photo platform. It expects one server and one data folder.
-- **The links are the credentials.** Anyone with the pool link (and password, if set) can view and upload; anyone with the admin link can manage. There is no email or account recovery.
 
 ## Tech stack
 
