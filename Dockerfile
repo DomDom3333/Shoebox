@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends su-exec && rm -
 # Photos, SQLite DB and data-protection keys all live under /data — mount a volume here.
 ENV Shoebox__DataPath=/data
 # Pre-create /data/keys so named volumes pick up the directory on first initialisation.
-RUN mkdir -p /data/keys && chown -R $APP_UID /data
+RUN mkdir -p /data/keys /data/pools && chown -R $APP_UID /data
 VOLUME /data
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
