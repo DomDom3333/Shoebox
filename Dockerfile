@@ -13,19 +13,14 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
-# gosu: lightweight privilege-drop tool for the entrypoint (Debian package)
-RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
-
 # Photos, SQLite DB and data-protection keys all live under /data — mount a volume here.
+# Create the dirs owned by APP_UID: a freshly-created named volume inherits that
+# ownership, so the non-root app can write to it with no privileged entrypoint.
+# (The app also creates these at startup; pre-creating just seeds a fresh volume.)
 ENV Shoebox__DataPath=/data
-# Pre-create /data/keys so named volumes pick up the directory on first initialisation.
 RUN mkdir -p /data/keys /data/pools && chown -R $APP_UID /data
 VOLUME /data
 
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-
+USER $APP_UID
 EXPOSE 8080
-# Entrypoint runs as root to fix /data ownership (handles bind mounts and
-# pre-existing volumes), then drops to APP_UID before starting the app.
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["dotnet", "Shoebox.Web.dll"]
