@@ -65,6 +65,9 @@
         @if (Model.Photos.Count > 0)
         {
             <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=all">Download all photos</a>
+            @* Shown only on devices where the Web Share API can hand images to the OS
+               (mobile Safari / Chrome). Revealed by gallery.js after feature detection. *@
+            <button type="button" class="btn btn-ghost" id="save-gallery-btn" hidden>Save to gallery</button>
         }
         else
         {

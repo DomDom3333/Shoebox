@@ -126,6 +126,74 @@
     }
   });
 
+  // ---------- Save to gallery (mobile share sheet) ----------
+
+  // No browser API can write straight to the phone's camera roll, but the Web Share
+  // API can hand the image files to the OS share sheet, where the user taps
+  // "Save Image(s)" to drop them into Photos/Gallery. Desktop and browsers without
+  // file-sharing support never see this button and keep using the ZIP download.
+  const saveGalleryBtn = document.getElementById("save-gallery-btn");
+  const SAVE_MAX = 50; // above this, the ZIP is a better bet than a huge share payload.
+
+  function canShareFiles() {
+    try {
+      const probe = new File([""], "probe.jpg", { type: "image/jpeg" });
+      return !!(navigator.canShare && navigator.canShare({ files: [probe] }));
+    } catch {
+      return false;
+    }
+  }
+
+  if (saveGalleryBtn && canShareFiles()) {
+    saveGalleryBtn.hidden = false;
+    saveGalleryBtn.addEventListener("click", saveToGallery);
+  }
+
+  async function saveToGallery() {
+    const tiles = [...gallery.querySelectorAll(".tile")];
+    if (!tiles.length) return;
+    if (tiles.length > SAVE_MAX) {
+      alert(
+        `That's ${tiles.length} photos — too many to save in one go. ` +
+          `Use "Download all photos" to grab them as a ZIP instead.`
+      );
+      return;
+    }
+
+    const label = saveGalleryBtn.textContent;
+    saveGalleryBtn.disabled = true;
+    try {
+      const files = [];
+      for (let i = 0; i < tiles.length; i++) {
+        saveGalleryBtn.textContent = `Preparing ${i + 1}/${tiles.length}…`;
+        const tile = tiles[i];
+        const res = await fetch(tile.dataset.original);
+        if (!res.ok) throw new Error("fetch failed");
+        const blob = await res.blob();
+        files.push(
+          new File([blob], tile.dataset.filename || `photo-${i + 1}.jpg`, {
+            type: blob.type || "image/jpeg",
+          })
+        );
+      }
+
+      if (!navigator.canShare || !navigator.canShare({ files })) {
+        throw new Error("unshareable");
+      }
+      await navigator.share({ files });
+    } catch (err) {
+      // Tapping "Cancel" on the share sheet rejects with AbortError — not a failure.
+      if (!err || err.name !== "AbortError") {
+        alert(
+          'Couldn\'t hand these to your gallery. You can still use "Download all photos" for the ZIP.'
+        );
+      }
+    } finally {
+      saveGalleryBtn.textContent = label;
+      saveGalleryBtn.disabled = false;
+    }
+  }
+
   // ---------- Delete ----------
 
   gallery.addEventListener("click", async (e) => {
