@@ -1,16 +1,16 @@
 services:
-  groupphoto:
+  shoebox:
     build: .
     ports:
       - "8080:8080"
     volumes:
-      - groupphoto-data:/data
+      - shoebox-data:/data
     environment:
       # Uncomment and set when running behind a reverse proxy / custom domain,
       # so share links and QR codes point to the public address:
-      # GroupPhoto__PublicBaseUrl: "https://photos.example.com"
-      GroupPhoto__MaxFileSizeMb: "50"
+      # Shoebox__PublicBaseUrl: "https://photos.example.com"
+      Shoebox__MaxFileSizeMb: "50"
     restart: unless-stopped
 
 volumes:
-  groupphoto-data:
+  shoebox-data:

@@ -10,12 +10,8 @@ for a group, and it fills itself.
 
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Build](https://github.com/DomDom3333/GroupPhoto/actions/workflows/docker.yml/badge.svg)
+![Build](https://github.com/DomDom3333/Shoebox/actions/workflows/docker.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-green)
-
-> The product is **Shoebox**; the codebase and configuration prefix are still `GroupPhoto`
-> (project `GroupPhoto.Web`, env vars `GroupPhoto__*`), so a few technical names below differ
-> from the brand.
 
 > [!IMPORTANT]
 > Shoebox is built for casually sharing event photos, not for sensitive data, and not for
@@ -71,7 +67,7 @@ docker compose up -d --build
 Or run a prebuilt image (published to GitHub Container Registry by CI):
 
 ```bash
-docker run -d -p 8080:8080 -v shoebox-data:/data ghcr.io/domdom3333/groupphoto:latest
+docker run -d -p 8080:8080 -v shoebox-data:/data ghcr.io/domdom3333/shoebox:latest
 ```
 
 All state (photos, database, cookie-signing keys) is kept in a volume mounted at `/data`.
@@ -81,15 +77,15 @@ All state (photos, database, cookie-signing keys) is kept in a volume mounted at
 Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
-dotnet run --project src/GroupPhoto.Web
+dotnet run --project src/Shoebox.Web
 # open the URL it prints (e.g. http://localhost:5225)
 ```
 
-Data is written to `src/GroupPhoto.Web/data/` (gitignored).
+Data is written to `src/Shoebox.Web/data/` (gitignored).
 
 ## Configuration
 
-Set via environment variables (`GroupPhoto__Key`) or the `GroupPhoto` section of
+Set via environment variables (`Shoebox__Key`) or the `Shoebox` section of
 `appsettings.json`:
 
 | Setting | Default | Purpose |
@@ -113,7 +109,7 @@ proxy; do not expose the container directly, since the forwarded headers it trus
 the client IP behind rate limiting and for the `Secure` cookie flag) would then be spoofable.
 Two things to set:
 
-- `GroupPhoto__PublicBaseUrl`: your public address, so QR codes and share links are correct.
+- `Shoebox__PublicBaseUrl`: your public address, so QR codes and share links are correct.
 - Your proxy's request-body limit: at least `MaxFileSizeMb` (for example `client_max_body_size 50m;` in nginx).
 
 ## Supported formats
@@ -150,7 +146,7 @@ Each upload is decoded once and produces three files, so every context gets a ri
 
 ```
 /data
-├── groupphoto.db                     # SQLite: boxes + photo metadata
+├── shoebox.db                     # SQLite: boxes + photo metadata
 ├── keys/                             # Data Protection keys (signed cookies)
 └── pools/{boxId}/
     ├── orig/{photoId}.{ext}          # untouched originals
@@ -191,9 +187,9 @@ tool for confidential material.
 ## Project structure
 
 ```
-src/GroupPhoto.Web/
+src/Shoebox.Web/
 ├── Program.cs              # DI, middleware, EF init, upload limits, rate limiting
-├── GroupPhotoOptions.cs    # configuration
+├── ShoeboxOptions.cs    # configuration
 ├── Data/                   # EF Core context + Pool / Photo entities
 ├── Services/               # boxes, photos, rendering, ZIP, access, cleanup…
 ├── Api/PhotoEndpoints.cs   # minimal-API upload/serve/zip/qr endpoints
@@ -207,7 +203,7 @@ Dockerfile · docker-compose.yml
 
 `.github/workflows/docker.yml` builds the Docker image on every push and pull request, and
 on pushes to the default branch (and version tags) publishes it to GitHub Container Registry as
-`ghcr.io/domdom3333/groupphoto`. Pull requests build only; they do not publish.
+`ghcr.io/domdom3333/shoebox`. Pull requests build only; they do not publish.
 
 ## Notes and limitations
 

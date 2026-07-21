@@ -428,5 +428,5 @@ FodyWeavers.xsd
 *.msm
 *.msp
 
-# GroupPhoto local data (photos, sqlite db, keys)
+# Shoebox local data (photos, sqlite db, keys)
 data/
