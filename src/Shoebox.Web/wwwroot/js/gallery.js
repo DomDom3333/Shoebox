@@ -130,8 +130,8 @@
 
   // No browser API can write straight to the phone's camera roll, but the Web Share
   // API can hand the image files to the OS share sheet, where the user taps
-  // "Save Image(s)" to drop them into Photos/Gallery. Desktop and browsers without
-  // file-sharing support never see this button and keep using the ZIP download.
+  // "Save Image(s)" to drop them into Photos/Gallery. This is a phone-only helper:
+  // desktop keeps using the ZIP download.
   const saveGalleryBtn = document.getElementById("save-gallery-btn");
   const SAVE_MAX = 50; // above this, the ZIP is a better bet than a huge share payload.
 
@@ -144,7 +144,13 @@
     }
   }
 
-  if (saveGalleryBtn && canShareFiles()) {
+  // Desktop Chrome/Edge also expose canShare({ files }), so feature detection alone
+  // isn't enough — gate on a coarse (touch) pointer too, matching the CSS breakpoints.
+  function isTouchDevice() {
+    return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  }
+
+  if (saveGalleryBtn && isTouchDevice() && canShareFiles()) {
     saveGalleryBtn.hidden = false;
     saveGalleryBtn.addEventListener("click", saveToGallery);
   }
@@ -162,20 +168,23 @@
 
     const label = saveGalleryBtn.textContent;
     saveGalleryBtn.disabled = true;
+    saveGalleryBtn.textContent = `Preparing ${tiles.length}…`;
     try {
-      const files = [];
-      for (let i = 0; i < tiles.length; i++) {
-        saveGalleryBtn.textContent = `Preparing ${i + 1}/${tiles.length}…`;
-        const tile = tiles[i];
-        const res = await fetch(tile.dataset.original);
-        if (!res.ok) throw new Error("fetch failed");
-        const blob = await res.blob();
-        files.push(
-          new File([blob], tile.dataset.filename || `photo-${i + 1}.jpg`, {
+      // navigator.share() needs live transient activation (~5s). Fetching the
+      // originals one-by-one blows past that window, so share() throws
+      // NotAllowedError. Fetch them in parallel to keep the wait short.
+      let done = 0;
+      const files = await Promise.all(
+        tiles.map(async (tile, i) => {
+          const res = await fetch(tile.dataset.original);
+          if (!res.ok) throw new Error("fetch failed");
+          const blob = await res.blob();
+          saveGalleryBtn.textContent = `Preparing ${++done}/${tiles.length}…`;
+          return new File([blob], tile.dataset.filename || `photo-${i + 1}.jpg`, {
             type: blob.type || "image/jpeg",
-          })
-        );
-      }
+          });
+        })
+      );
 
       if (!navigator.canShare || !navigator.canShare({ files })) {
         throw new Error("unshareable");
