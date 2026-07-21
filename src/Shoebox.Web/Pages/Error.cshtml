@@ -1,0 +1,19 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<div class="narrow">
+    <div class="hero">
+        <h1>Well, that wasn't <em>supposed</em> to happen.</h1>
+        <p class="lead">
+            Something went wrong on our side. Try again in a moment. Your photos are fine.
+        </p>
+        @if (Model.ShowRequestId)
+        {
+            <p class="pool-meta">Request ID: <span class="code">@Model.RequestId</span></p>
+        }
+        <p><a class="btn btn-ghost" href="/">Back to the start</a></p>
+    </div>
+</div>

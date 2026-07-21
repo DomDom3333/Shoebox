@@ -1,0 +1,58 @@
+@page
+@model CreateModel
+@{
+    ViewData["Title"] = "Start a box";
+}
+
+<div class="narrow">
+    <h1>Start a <em>box</em>.</h1>
+    <p class="lead">
+        One box per event. You'll get a share link, a QR code for the table,
+        and a private admin link. That's the whole setup.
+    </p>
+
+    <form method="post" class="card form-stack">
+        <label>
+            Box name <span class="required">*</span>
+            <input type="text" name="name" maxlength="120" required placeholder="Anna &amp; Ben's Wedding"
+                   value="@Model.Name" />
+        </label>
+
+        <label>
+            Description <span class="muted">(optional)</span>
+            <textarea name="description" maxlength="2000" rows="2"
+                      placeholder="A line shown at the top of the gallery">@Model.Description</textarea>
+            <span class="hint">Something like &ldquo;Share your photos from the big day!&rdquo;</span>
+        </label>
+
+        <label>
+            Password <span class="muted">(optional)</span>
+            <input type="password" name="password" maxlength="200" autocomplete="new-password" />
+            <span class="hint">
+                Leave empty and anyone with the link gets in. Add one if the link might travel
+                further than the guest list. Guests only enter it once per device.
+            </span>
+        </label>
+
+        <label>
+            Automatically delete after
+            <select name="expiryDays">
+                @foreach (var (days, text) in Model.ExpiryChoices)
+                {
+                    <option value="@days" selected="@(days == Model.SelectedExpiryDays)">@text</option>
+                }
+            </select>
+            <span class="hint">
+                Boxes are for the weeks around an event, not forever. Let this one clear out
+                on its own once everyone has taken home what they love.
+            </span>
+        </label>
+
+        @if (Model.Error is not null)
+        {
+            <p class="error">@Model.Error</p>
+        }
+
+        <button type="submit" class="btn btn-primary">Create box</button>
+    </form>
+</div>

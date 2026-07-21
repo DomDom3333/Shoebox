@@ -427,3 +427,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Shoebox local data (photos, sqlite db, keys)
+data/
