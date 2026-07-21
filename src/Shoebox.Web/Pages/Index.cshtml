@@ -14,6 +14,32 @@
     </p>
 </div>
 
+@if (Model.MyBoxes.Count > 0)
+{
+    <section class="my-boxes">
+        <h2>Your boxes</h2>
+        <p class="lead">Boxes this device has opened or created. Only this browser sees this list; it comes from your cookies, not an account.</p>
+        <ul class="box-list">
+            @foreach (var box in Model.MyBoxes)
+            {
+                <li>
+                    <a asp-page="/Pool/Gallery" asp-route-code="@box.Code" class="box-row">
+                        <span class="box-name">@box.Name</span>
+                        <span class="box-meta">
+                            <span class="box-code">@box.Code</span>
+                            <span class="box-count">@box.PhotoCount photo@(box.PhotoCount == 1 ? "" : "s")</span>
+                            @if (box.IsAdmin)
+                            {
+                                <span class="box-tag">admin</span>
+                            }
+                        </span>
+                    </a>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
 <div class="home-grid">
     <section>
         <h2>Start a box</h2>

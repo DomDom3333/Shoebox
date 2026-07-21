@@ -333,6 +333,45 @@ input[type="checkbox"] { accent-color: var(--ink); }
 }
 .join-form .btn { flex-shrink: 0; }
 
+.my-boxes { max-width: 720px; padding-top: 1.75rem; }
+.my-boxes .lead { margin-bottom: 1.1rem; }
+
+.box-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+
+.box-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  color: var(--ink);
+}
+.box-row:hover, .box-row:active { background: var(--paper-dim); }
+
+.box-name { font-weight: 600; font-size: 1.05rem; }
+
+.box-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.box-code { font-family: var(--mono); letter-spacing: 0.12em; text-transform: uppercase; }
+
+.box-tag {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  padding: 0.05rem 0.4rem;
+}
+
 .steps {
   list-style: none;
   margin: 0.5rem 0 0;
