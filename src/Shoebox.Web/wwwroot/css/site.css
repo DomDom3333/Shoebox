@@ -470,6 +470,15 @@ input[type="checkbox"] { accent-color: var(--ink); }
 }
 .dropzone.dragover { color: var(--ink); }
 
+/* Quiet caveat under the upload area: this is a drop box, not a vault. */
+.storage-note {
+  max-width: 46rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 .upload-progress { list-style: none; margin: 0.6rem 0 0; padding: 0; font-size: 0.85rem; }
 .upload-progress li {
   display: flex;
