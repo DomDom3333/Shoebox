@@ -2,8 +2,9 @@
    White paper, near-black ink, one marigold accent, and a hard-stop warm
    filmic spectrum hairline. Editorial serif for display, plain system sans
    for UI. Square corners and 1px borders, no soft shadows. Ships a dark
-   theme (the darkroom) via [data-theme="dark"], resolved from the viewer's
-   system preference with a manual toggle. */
+   theme (the darkroom) via [data-theme="dark"]. Light is the default; the
+   manual toggle stores the choice in a cookie the server reads on each
+   request, so it persists across navigation. */
 
 @font-face {
   font-family: "Instrument Serif";
