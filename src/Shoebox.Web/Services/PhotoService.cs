@@ -129,6 +129,25 @@ public class PhotoService(
         return UploadResult.Added(fileName, photo.Id);
     }
 
+    public async Task<bool> ReprocessAsync(Photo photo, CancellationToken ct = default)
+    {
+        var originalPath = paths.OriginalFile(photo.PoolId, photo.Id, photo.Extension);
+        if (!File.Exists(originalPath))
+            return false;
+
+        var info = await renderer.ProcessAsync(
+            originalPath, paths.ThumbFile(photo.PoolId, photo.Id), paths.DisplayFile(photo.PoolId, photo.Id), ct);
+        if (info is null)
+            return false;
+
+        photo.HasThumbnail = true;
+        photo.Width = info.Width;
+        photo.Height = info.Height;
+        photo.TakenAt ??= info.TakenAt;
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     public async Task DeleteAsync(Photo photo)
     {
         db.Photos.Remove(photo);
