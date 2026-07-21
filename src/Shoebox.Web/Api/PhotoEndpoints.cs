@@ -17,6 +17,7 @@ public static class PhotoEndpoints
         api.MapGet("/photos/{id:guid}/display", ServeDisplayAsync);
         api.MapGet("/photos/{id:guid}/original", ServeOriginalAsync);
         api.MapDelete("/photos/{id:guid}", DeletePhotoAsync);
+        api.MapPost("/photos/{id:guid}/reprocess", ReprocessAsync);
         api.MapPost("/photos/{id:guid}/like", ToggleLikeAsync).DisableAntiforgery();
         api.MapGet("/p/{code}/zip", DownloadZipAsync);
         api.MapGet("/p/{code}/qr", QrCodeAsync);
@@ -129,6 +130,21 @@ public static class PhotoEndpoints
         return Results.File(path, photo.ContentType,
             fileDownloadName: download ? photo.OriginalFileName : null,
             enableRangeProcessing: true);
+    }
+
+    private static async Task<IResult> ReprocessAsync(
+        Guid id, HttpContext context, AppDbContext db, PhotoService photos, PoolAccessService access)
+    {
+        var photo = await db.Photos.Include(p => p.Pool).FirstOrDefaultAsync(p => p.Id == id);
+        if (photo is null)
+            return Results.NotFound();
+        if (!access.IsAdmin(context, photo.PoolId))
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+
+        var ok = await photos.ReprocessAsync(photo, context.RequestAborted);
+        return ok
+            ? Results.Ok(new { status = "reprocessed" })
+            : Results.UnprocessableEntity(new { error = "Could not render image (original missing or unreadable)" });
     }
 
     private static async Task<IResult> DeletePhotoAsync(

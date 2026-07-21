@@ -14,8 +14,8 @@ public class ImageRenderer(IOptions<ShoeboxOptions> options, ILogger<ImageRender
     /// <summary>
     /// Decodes the original and writes both WebP renditions: a small thumbnail for the grid
     /// and a larger web-safe display proxy for the lightbox. Returns the source dimensions
-    /// and EXIF capture date, or null when the file can't be decoded (the upload still
-    /// succeeds and the gallery shows a placeholder tile).
+    /// and EXIF capture date, or null when the file can't be decoded (the caller should
+    /// reject or clean up the upload in that case).
     /// </summary>
     public async Task<ImageInfo?> ProcessAsync(string originalPath, string thumbPath, string displayPath,
         CancellationToken ct = default)
