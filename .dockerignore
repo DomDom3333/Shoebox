@@ -2,6 +2,7 @@
 **/obj/
 **/data/
 .git/
+.github/
 .gitignore
 *.md
 docker-compose.yml
