@@ -237,6 +237,14 @@ a { color: var(--ink); }
 .btn-danger { background: var(--paper); color: var(--danger); border-color: var(--danger); }
 .btn-danger:hover, .btn-danger:active { background: var(--danger); color: var(--paper); }
 
+/* A rendered-but-inert button (e.g. a download with nothing to fetch): looks flat,
+   ignores hover/clicks, and is skipped by keyboard focus. */
+.btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* ---------- Forms ---------- */
 
 input[type="text"], input[type="password"], textarea, select {
@@ -383,6 +391,8 @@ input[type="checkbox"] { accent-color: var(--ink); }
 
 .admin-link { margin-top: 0.55rem; font-family: var(--mono); font-size: 0.8rem; }
 
+.banner-cta { margin-top: 0.85rem; }
+
 /* ---------- Upload ---------- */
 
 /* dashed = "things can be dropped here", same language as the empty state */
@@ -475,12 +485,11 @@ input[type="checkbox"] { accent-color: var(--ink); }
 }
 
 @keyframes gp-develop {
-  /* fade in as a negative, hard-flip to an overexposed positive (steps(1)
-     avoids any grey mid-invert), then settle from white into full colour */
+  /* fade in as a negative, then crossfade (~300 ms) into an overexposed
+     positive, then settle from white into full colour */
   0%   { opacity: 0; filter: invert(1) saturate(0.6) brightness(1.1) contrast(0.9); }
-  42%  { opacity: 1; filter: invert(1) saturate(0.6) brightness(1.1) contrast(0.9);
-         animation-timing-function: steps(1, end); }
-  43%  { filter: invert(0) saturate(0.5) brightness(1.6) contrast(0.5); }
+  42%  { opacity: 1; filter: invert(1) saturate(0.6) brightness(1.1) contrast(0.9); }
+  70%  { filter: invert(0) saturate(0.5) brightness(1.6) contrast(0.5); }
   100% { opacity: 1; filter: none; }
 }
 /* prints tossed on a table: a faint alternating tilt that rights itself */

@@ -24,6 +24,10 @@ public class GalleryModel(
     public bool IsAdmin { get; set; }
     public bool ExpiresSoon { get; set; }
 
+    // Whether the box holds any photos the current visitor did not upload, so the
+    // "everyone else's" download only offers itself when it would actually return files.
+    public bool HasOthers { get; set; }
+
     public async Task<IActionResult> OnGetAsync(string code)
     {
         var pool = await pools.FindByCodeAsync(code);
@@ -47,6 +51,7 @@ public class GalleryModel(
         Photos = photos
             .Select(p => new PhotoTile(p.Id, p.UploaderName, p.OriginalFileName, p.UploaderUid == uid, p.HasThumbnail))
             .ToList();
+        HasOthers = Photos.Any(p => !p.Mine);
         Uploaders = photos
             .GroupBy(p => p.UploaderName)
             .Select(g => new UploaderSummary(g.Key, g.Count()))
