@@ -62,8 +62,24 @@
         </select>
     </label>
     <div class="download-buttons">
-        <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=all">Download all</a>
-        <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=others" title="Everything except your own uploads">Download others'</a>
+        @if (Model.Photos.Count > 0)
+        {
+            <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=all">Download all photos</a>
+        }
+        else
+        {
+            <span class="btn btn-ghost" aria-disabled="true">Download all photos</span>
+        }
+        @if (Model.HasOthers)
+        {
+            <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=others"
+               title="Downloads every photo added by other people — everything except your own uploads">Download everyone else's</a>
+        }
+        else
+        {
+            <span class="btn btn-ghost" aria-disabled="true"
+                  title="Nothing to download yet — no one else has added photos">Download everyone else's</span>
+        }
     </div>
 </section>
 

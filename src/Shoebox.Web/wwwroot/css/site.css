@@ -237,6 +237,14 @@ a { color: var(--ink); }
 .btn-danger { background: var(--paper); color: var(--danger); border-color: var(--danger); }
 .btn-danger:hover, .btn-danger:active { background: var(--danger); color: var(--paper); }
 
+/* A rendered-but-inert button (e.g. a download with nothing to fetch): looks flat,
+   ignores hover/clicks, and is skipped by keyboard focus. */
+.btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* ---------- Forms ---------- */
 
 input[type="text"], input[type="password"], textarea, select {
@@ -382,6 +390,8 @@ input[type="checkbox"] { accent-color: var(--ink); }
 :root[data-theme="dark"] .banner.success { background: #142319; border-color: #2f5b3d; color: #a9d9b6; }
 
 .admin-link { margin-top: 0.55rem; font-family: var(--mono); font-size: 0.8rem; }
+
+.banner-cta { margin-top: 0.85rem; }
 
 /* ---------- Upload ---------- */
 
