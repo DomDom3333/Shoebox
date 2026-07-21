@@ -203,6 +203,42 @@
     }
   }
 
+  // ---------- Like ----------
+
+  gallery.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".like-btn");
+    if (!btn) return;
+    e.stopPropagation(); // don't open the lightbox
+    if (btn.disabled) return;
+
+    const tile = btn.closest(".tile");
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/photos/${tile.dataset.id}/like`, { method: "POST" });
+      if (!res.ok) throw new Error("like failed");
+      const data = await res.json();
+      setLiked(btn, data.liked, data.count);
+    } catch {
+      // Leave the button as-is; a failed tap just does nothing.
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function setLiked(btn, liked, count) {
+    btn.classList.toggle("liked", liked);
+    btn.setAttribute("aria-pressed", liked ? "true" : "false");
+    btn.title = (liked ? "Unlike" : "Like") + " this photo";
+    btn.querySelector(".heart").textContent = liked ? "❤" : "♡";
+    btn.querySelector(".like-count").textContent = count;
+    if (liked) {
+      // Retrigger the pop animation on each fresh like.
+      btn.classList.remove("just-liked");
+      void btn.offsetWidth;
+      btn.classList.add("just-liked");
+    }
+  }
+
   // ---------- Delete ----------
 
   gallery.addEventListener("click", async (e) => {
@@ -256,7 +292,7 @@
 
   gallery.addEventListener("click", (e) => {
     const tile = e.target.closest(".tile");
-    if (!tile || e.target.closest(".delete-btn")) return;
+    if (!tile || e.target.closest(".delete-btn") || e.target.closest(".like-btn")) return;
     showAt(visibleTiles().indexOf(tile));
   });
 

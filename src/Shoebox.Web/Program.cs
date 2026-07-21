@@ -88,7 +88,23 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     scope.ServiceProvider.GetRequiredService<StoragePaths>().EnsureBaseDirectories();
-    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreatedAsync();
+    var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await appDb.Database.EnsureCreatedAsync();
+
+    // EnsureCreated builds the full schema only for a brand-new database; it never
+    // alters one that already has tables. This project has no migrations, so tables
+    // added after the first release are created here, idempotently, for existing DBs.
+    await appDb.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE IF NOT EXISTS "Likes" (
+            "PhotoId" TEXT NOT NULL,
+            "UploaderUid" TEXT NOT NULL,
+            "CreatedAt" TEXT NOT NULL,
+            CONSTRAINT "PK_Likes" PRIMARY KEY ("PhotoId", "UploaderUid"),
+            CONSTRAINT "FK_Likes_Photos_PhotoId" FOREIGN KEY ("PhotoId")
+                REFERENCES "Photos" ("Id") ON DELETE CASCADE
+        );
+        """);
 }
 
 app.UseForwardedHeaders();

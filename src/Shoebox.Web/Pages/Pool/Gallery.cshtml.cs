@@ -6,7 +6,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Shoebox.Web.Pages.Pool;
 
-public record PhotoTile(Guid Id, string UploaderName, string FileName, bool Mine, bool HasThumbnail);
+public record PhotoTile(
+    Guid Id, string UploaderName, string FileName, bool Mine, bool HasThumbnail,
+    int LikeCount, bool LikedByMe);
 public record UploaderSummary(string Name, int Count);
 
 public class GalleryModel(
@@ -47,9 +49,22 @@ public class GalleryModel(
             .OrderBy(p => p.TakenAt ?? p.UploadedAt)
             .ToListAsync();
 
+        var photoIds = photos.Select(p => p.Id).ToList();
+        var likeCounts = await db.Likes
+            .Where(l => photoIds.Contains(l.PhotoId))
+            .GroupBy(l => l.PhotoId)
+            .Select(g => new { PhotoId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.PhotoId, x => x.Count);
+        var myLikes = (await db.Likes
+            .Where(l => l.UploaderUid == uid && photoIds.Contains(l.PhotoId))
+            .Select(l => l.PhotoId)
+            .ToListAsync()).ToHashSet();
+
         Pool = pool;
         Photos = photos
-            .Select(p => new PhotoTile(p.Id, p.UploaderName, p.OriginalFileName, p.UploaderUid == uid, p.HasThumbnail))
+            .Select(p => new PhotoTile(
+                p.Id, p.UploaderName, p.OriginalFileName, p.UploaderUid == uid, p.HasThumbnail,
+                likeCounts.GetValueOrDefault(p.Id), myLikes.Contains(p.Id)))
             .ToList();
         HasOthers = Photos.Any(p => !p.Mine);
         Uploaders = photos

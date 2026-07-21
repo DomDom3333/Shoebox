@@ -115,14 +115,22 @@
             }
             <figcaption>
                 <span class="uploader">@photo.UploaderName</span>
-                @if (photo.Mine)
-                {
-                    <span class="badge-you">you</span>
-                }
-                @if (photo.Mine || Model.IsAdmin)
-                {
-                    <button type="button" class="delete-btn" title="Delete photo">&times;</button>
-                }
+                <span class="tile-actions">
+                    <button type="button" class="like-btn @(photo.LikedByMe ? "liked" : "")"
+                            aria-pressed="@(photo.LikedByMe ? "true" : "false")"
+                            title="@(photo.LikedByMe ? "Unlike" : "Like") this photo">
+                        <span class="heart" aria-hidden="true">@(photo.LikedByMe ? "❤" : "♡")</span>
+                        <span class="like-count">@photo.LikeCount</span>
+                    </button>
+                    @if (photo.Mine)
+                    {
+                        <span class="badge-you">you</span>
+                    }
+                    @if (photo.Mine || Model.IsAdmin)
+                    {
+                        <button type="button" class="delete-btn" title="Delete photo">&times;</button>
+                    }
+                </span>
             </figcaption>
         </figure>
     }
