@@ -22,8 +22,8 @@
         <ul class="box-list">
             @foreach (var box in Model.MyBoxes)
             {
-                <li>
-                    <a asp-page="/Pool/Gallery" asp-route-code="@box.Code" class="box-row">
+                <li class="box-row">
+                    <a asp-page="/Pool/Gallery" asp-route-code="@box.Code" class="box-link">
                         <span class="box-name">@box.Name</span>
                         <span class="box-meta">
                             <span class="box-code">@box.Code</span>
@@ -34,6 +34,10 @@
                             }
                         </span>
                     </a>
+                    @if (box.IsAdmin)
+                    {
+                        <a asp-page="/Pool/Admin" asp-route-code="@box.Code" class="btn btn-ghost box-admin-btn">Admin panel</a>
+                    }
                 </li>
             }
         </ul>

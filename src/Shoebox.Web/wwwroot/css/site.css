@@ -341,15 +341,25 @@ input[type="checkbox"] { accent-color: var(--ink); }
 .box-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.box-link {
+  flex: 1 1 14rem;
+  display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.4rem 1rem;
   padding: 0.9rem 0;
-  border-bottom: 1px solid var(--line);
   text-decoration: none;
   color: var(--ink);
 }
-.box-row:hover, .box-row:active { background: var(--paper-dim); }
+.box-link:hover, .box-link:active { background: var(--paper-dim); }
+
+.box-admin-btn { flex-shrink: 0; min-height: 38px; padding: 0.35rem 0.9rem; font-size: 0.85rem; }
 
 .box-name { font-weight: 600; font-size: 1.05rem; }
 
