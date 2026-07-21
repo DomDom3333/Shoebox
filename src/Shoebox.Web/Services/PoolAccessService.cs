@@ -25,6 +25,18 @@ public class PoolAccessService(IDataProtectionProvider dataProtection, IOptions<
     public bool IsAdmin(HttpContext context, Guid poolId)
         => ReadIds(context, AdminCookie).Contains(poolId);
 
+    /// <summary>
+    /// Every pool this browser holds a signed cookie for: password boxes it has unlocked
+    /// plus boxes it administers. This is what a "your boxes" list is built from; it reveals
+    /// nothing the browser doesn't already have the credentials (cookies) to open.
+    /// </summary>
+    public IReadOnlyCollection<Guid> AccessiblePoolIds(HttpContext context)
+    {
+        var ids = new HashSet<Guid>(ReadIds(context, AccessCookie));
+        ids.UnionWith(ReadIds(context, AdminCookie));
+        return ids;
+    }
+
     public void GrantAccess(HttpContext context, Guid poolId)
         => AddId(context, AccessCookie, poolId);
 
