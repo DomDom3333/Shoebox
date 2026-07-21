@@ -13,8 +13,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
-# su-exec: lightweight privilege-drop tool (replaces gosu, ships in Debian repos)
-RUN apt-get update && apt-get install -y --no-install-recommends su-exec && rm -rf /var/lib/apt/lists/*
+# gosu: lightweight privilege-drop tool for the entrypoint (Debian package)
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
 
 # Photos, SQLite DB and data-protection keys all live under /data — mount a volume here.
 ENV Shoebox__DataPath=/data
