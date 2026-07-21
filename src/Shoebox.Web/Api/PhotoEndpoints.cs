@@ -17,6 +17,7 @@ public static class PhotoEndpoints
         api.MapGet("/photos/{id:guid}/display", ServeDisplayAsync);
         api.MapGet("/photos/{id:guid}/original", ServeOriginalAsync);
         api.MapDelete("/photos/{id:guid}", DeletePhotoAsync);
+        api.MapPost("/photos/{id:guid}/like", ToggleLikeAsync).DisableAntiforgery();
         api.MapGet("/p/{code}/zip", DownloadZipAsync);
         api.MapGet("/p/{code}/qr", QrCodeAsync);
     }
@@ -149,6 +150,36 @@ public static class PhotoEndpoints
 
         await photos.DeleteAsync(photo);
         return Results.NoContent();
+    }
+
+    private static async Task<IResult> ToggleLikeAsync(
+        Guid id, HttpContext context, AppDbContext db, PoolAccessService access, UploaderIdentity identity)
+    {
+        var photo = await FindAccessiblePhotoAsync(id, context, db, access);
+        if (photo is null)
+        {
+            return Results.NotFound();
+        }
+
+        var uid = identity.GetOrCreateUid(context);
+        var existing = await db.Likes.FirstOrDefaultAsync(l => l.PhotoId == id && l.UploaderUid == uid);
+
+        bool liked;
+        if (existing is null)
+        {
+            db.Likes.Add(new PhotoLike { PhotoId = id, UploaderUid = uid, CreatedAt = DateTime.UtcNow });
+            liked = true;
+        }
+        else
+        {
+            db.Likes.Remove(existing);
+            liked = false;
+        }
+
+        await db.SaveChangesAsync();
+
+        var count = await db.Likes.CountAsync(l => l.PhotoId == id);
+        return Results.Ok(new { liked, count });
     }
 
     private static async Task<IResult> DownloadZipAsync(

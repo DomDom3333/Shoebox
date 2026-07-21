@@ -70,8 +70,8 @@
         @if (Model.Photos.Count > 0)
         {
             <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=all">Download all photos</a>
-            @* Shown only on devices where the Web Share API can hand images to the OS
-               (mobile Safari / Chrome). Revealed by gallery.js after feature detection. *@
+            @* Phone-only: revealed by gallery.js on touch devices whose browser can
+               hand image files to the OS share sheet (mobile Safari / Chrome). *@
             <button type="button" class="btn btn-ghost" id="save-gallery-btn" hidden>Save to gallery</button>
         }
         else
@@ -115,14 +115,22 @@
             }
             <figcaption>
                 <span class="uploader">@photo.UploaderName</span>
-                @if (photo.Mine)
-                {
-                    <span class="badge-you">you</span>
-                }
-                @if (photo.Mine || Model.IsAdmin)
-                {
-                    <button type="button" class="delete-btn" title="Delete photo">&times;</button>
-                }
+                <span class="tile-actions">
+                    <button type="button" class="like-btn @(photo.LikedByMe ? "liked" : "")"
+                            aria-pressed="@(photo.LikedByMe ? "true" : "false")"
+                            title="@(photo.LikedByMe ? "Unlike" : "Like") this photo">
+                        <span class="heart" aria-hidden="true">@(photo.LikedByMe ? "❤" : "♡")</span>
+                        <span class="like-count">@photo.LikeCount</span>
+                    </button>
+                    @if (photo.Mine)
+                    {
+                        <span class="badge-you">you</span>
+                    }
+                    @if (photo.Mine || Model.IsAdmin)
+                    {
+                        <button type="button" class="delete-btn" title="Delete photo">&times;</button>
+                    }
+                </span>
             </figcaption>
         </figure>
     }

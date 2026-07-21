@@ -590,8 +590,37 @@ input[type="checkbox"] { accent-color: var(--ink); }
   min-height: 2.1rem;
 }
 
-.tile .uploader { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile .uploader { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile.mine .uploader { font-weight: 600; color: var(--ink); }
+
+/* right side of the print's chin: like button, "you" badge, delete */
+.tile-actions { display: flex; align-items: center; gap: 0.15rem; flex-shrink: 0; }
+
+/* Instagram-style heart + count. Muted by default; red once liked. */
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 2rem;
+  padding: 0 0.3rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+.like-btn .heart { font-size: 1.05rem; line-height: 1; color: var(--muted); transition: transform 0.12s ease; }
+.like-btn:hover .heart, .like-btn:active .heart, .like-btn.liked .heart { color: var(--danger); }
+.like-btn .like-count { min-width: 0.75rem; text-align: left; font-variant-numeric: tabular-nums; }
+
+.like-btn.just-liked .heart { animation: gp-like-pop 0.28s ease; }
+@keyframes gp-like-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
 
 .badge-you {
   font-size: 0.66rem;
@@ -784,4 +813,6 @@ input[type="checkbox"] { accent-color: var(--ink); }
   .tile, .tile:hover { transform: none; transition: none; }
   .tile, .tile img { animation: none; }
   .btn { transition: none; }
+  .like-btn.just-liked .heart { animation: none; }
+  .like-btn .heart { transition: none; }
 }
