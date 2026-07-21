@@ -1,5 +1,6 @@
-// Light / dark toggle. The initial theme is resolved inline in <head> before
-// first paint; this only wires the button and persists the choice.
+// Light / dark toggle. The theme is resolved server-side from the
+// "shoebox-theme" cookie (see _Layout.cshtml), so this only wires the button
+// and writes the same cookie back so the choice survives navigation.
 (function () {
   "use strict";
   var root = document.documentElement;
@@ -12,12 +13,18 @@
     btn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
   }
 
+  function persist(theme) {
+    // One year, site-wide, sent on same-site navigations so the server can
+    // render the chosen theme on the next page.
+    document.cookie = "shoebox-theme=" + theme + "; path=/; max-age=31536000; SameSite=Lax";
+  }
+
   sync();
 
   btn.addEventListener("click", function () {
     var next = root.dataset.theme === "dark" ? "light" : "dark";
     root.dataset.theme = next;
-    try { localStorage.setItem("shoebox-theme", next); } catch (e) { /* ignore */ }
+    persist(next);
     sync();
   });
 })();

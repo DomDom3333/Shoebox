@@ -1,26 +1,20 @@
+@{
+    // The theme is stored in a cookie so it is resolved server-side on every
+    // request. This keeps the choice consistent across navigation (no reliance
+    // on client-side script timing) and paints the right theme with no flash.
+    // Light is the default until the visitor picks otherwise.
+    var theme = Context.Request.Cookies["shoebox-theme"] == "dark" ? "dark" : "light";
+}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="@theme">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Everyone's photos from a wedding, festival or trip, gathered in one shared box. No accounts, no app. Just one link." />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="@(theme == "dark" ? "#171614" : "#ffffff")" />
     <title>@(ViewData["Title"] is string t && t.Length > 0 ? $"{t} · Shoebox" : "Shoebox")</title>
     <link rel="icon" type="image/svg+xml" href="~/favicon.svg" />
     <link rel="icon" href="~/favicon.ico" sizes="32x32" />
-    @* Resolve the theme before first paint so there is no flash. *@
-    <script>
-        (function () {
-            try {
-                var t = localStorage.getItem('shoebox-theme');
-                if (t !== 'light' && t !== 'dark') {
-                    t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                }
-                document.documentElement.dataset.theme = t;
-            } catch (e) { /* no storage: stay on the light default */ }
-        })();
-    </script>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
