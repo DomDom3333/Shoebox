@@ -13,6 +13,10 @@ for a group, and it fills itself.
 ![Build](https://github.com/DomDom3333/Shoebox/actions/workflows/docker.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+![The Shoebox gallery: a shared box of event photos, filterable by uploader, with per-photo likes and a "you" badge on your own uploads](docs/screenshots/gallery.png)
+
+<sup>A demo box, filled the way a real one fills itself: a few people, everyone's photos, no accounts. (Images above are placeholder gradients, not real photos.)</sup>
+
 > [!IMPORTANT]
 > Shoebox is built for casually sharing event photos, not for sensitive data, and not for
 > durable storage.
@@ -54,6 +58,34 @@ For everyone else:
 - **Deduplication**: the same file uploaded twice is stored once (SHA-256).
 - **Designed to be nice to use**: an editorial, print-inspired interface with a light/dark toggle, photos that "develop" in like film as the gallery loads, and layouts and tap targets that work on phones as well as desktops.
 - **Simple storage**: files on disk plus a SQLite database. One directory holds everything.
+
+## Screenshots
+
+Share a link, and the box fills itself. The whole flow — from the landing page to a full
+gallery, in light or dark — looks like this.
+
+**The landing page.** No sign-up, no directory: start a box, or join one with a code.
+
+![Shoebox landing page](docs/screenshots/home.png)
+
+**The gallery, in dark mode.** A WebP thumbnail grid that "develops" in like film as it loads.
+Photos sort by capture time (EXIF); filter by uploader; like the ones you love.
+
+![The gallery in dark mode, showing photos from four people](docs/screenshots/gallery-dark.png)
+
+**The lightbox and sharing.** Tap a thumbnail for a full-screen, web-safe proxy view with
+download; hand out the box with a link or a QR code for the table.
+
+| Full-screen lightbox | Share by link or QR |
+|---|---|
+| ![Full-screen lightbox view of a photo](docs/screenshots/lightbox.png) | ![Share dialog with a QR code and link](docs/screenshots/share.png) |
+
+**Managing a box, and on a phone.** The private admin link renames, re-passwords, sets
+auto-expiry, or deletes the box; guests upload from their phone in a couple of taps.
+
+| Admin panel | On a phone |
+|---|---|
+| ![The admin panel: share, settings, and danger zone](docs/screenshots/admin.png) | ![The gallery on a phone-sized screen](docs/screenshots/mobile.png) |
 
 ## Quick start
 
