@@ -25,6 +25,8 @@ public class GalleryModel(
     public string ShareUrl { get; set; } = "";
     public bool IsAdmin { get; set; }
     public bool ExpiresSoon { get; set; }
+    public string ExpiryLabel { get; set; } = "";
+    public string ExpiryUrgency { get; set; } = "";
 
     // Whether the box holds any photos the current visitor did not upload, so the
     // "everyone else's" download only offers itself when it would actually return files.
@@ -75,7 +77,35 @@ public class GalleryModel(
         UploaderName = identity.GetName(HttpContext) ?? "";
         ShareUrl = links.PoolUrl(HttpContext, pool);
         IsAdmin = access.IsAdmin(HttpContext, pool.Id);
-        ExpiresSoon = pool.ExpiresAt is { } exp && exp < DateTime.UtcNow.AddDays(7);
+        if (pool.ExpiresAt is { } exp)
+        {
+            ExpiresSoon = exp < DateTime.UtcNow.AddDays(7);
+            ExpiryLabel = BuildExpiryLabel(exp);
+            ExpiryUrgency = BuildExpiryUrgency(exp);
+        }
         return Page();
+    }
+
+    private static string BuildExpiryLabel(DateTime expiresAt)
+    {
+        var diff = expiresAt - DateTime.UtcNow;
+        if (diff.TotalHours < 24) return "today";
+        if (diff.TotalDays < 2) return "tomorrow";
+        if (diff.TotalDays < 7) return $"in {(int)diff.TotalDays} day{((int)diff.TotalDays == 1 ? "" : "s")}";
+        if (diff.TotalDays < 14) return "in 1 week";
+        if (diff.TotalDays < 30) return $"in {(int)(diff.TotalDays / 7)} weeks";
+        if (diff.TotalDays < 60) return "in 1 month";
+        if (diff.TotalDays < 365) return $"in {(int)(diff.TotalDays / 30)} months";
+        if (diff.TotalDays < 730) return "in 1 year";
+        return $"in {(int)(diff.TotalDays / 365)} years";
+    }
+
+    private static string BuildExpiryUrgency(DateTime expiresAt)
+    {
+        var days = (expiresAt - DateTime.UtcNow).TotalDays;
+        if (days <= 7) return "critical";
+        if (days <= 30) return "warning";
+        if (days <= 90) return "notice";
+        return "info";
     }
 }
