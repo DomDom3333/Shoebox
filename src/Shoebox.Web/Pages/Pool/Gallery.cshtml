@@ -28,9 +28,19 @@
             <text>· from @Model.Uploaders.Count @(Model.Uploaders.Count == 1 ? "person" : "people")</text>
         }
     </p>
-    @if (Model.ExpiresSoon)
+    @if (Model.Pool.ExpiresAt.HasValue)
     {
-        <p class="banner warn">This box clears out on @(Model.Pool.ExpiresAt?.ToString("d MMM yyyy")). Grab what you want to keep.</p>
+        <div class="banner expiry-banner expiry-@Model.ExpiryUrgency">
+            <span class="expiry-icon" aria-hidden="true">@(Model.ExpiryUrgency == "critical" ? "⚠️" : "🗓")</span>
+            <span class="expiry-text">
+                <strong>This box deletes on @Model.Pool.ExpiresAt.Value.ToString("d MMM yyyy")</strong>
+                <span class="expiry-relative">(@Model.ExpiryLabel)</span>
+                @if (Model.ExpiryUrgency == "critical")
+                {
+                    <span class="expiry-action">— save anything you want to keep now.</span>
+                }
+            </span>
+        </div>
     }
 </div>
 

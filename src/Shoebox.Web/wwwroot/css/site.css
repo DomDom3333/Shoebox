@@ -439,6 +439,23 @@ input[type="checkbox"] { accent-color: var(--ink); }
 :root[data-theme="dark"] .banner.warn { background: #2a2410; border-color: #6b5a1e; color: #ecd9a2; }
 :root[data-theme="dark"] .banner.success { background: #142319; border-color: #2f5b3d; color: #a9d9b6; }
 
+/* Expiry banner urgency levels */
+.expiry-banner { display: flex; align-items: baseline; gap: 0.5rem; }
+.expiry-icon { font-size: 1.1em; flex-shrink: 0; }
+.expiry-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem; line-height: 1.4; }
+.expiry-relative { font-size: 0.9em; opacity: 0.85; }
+.expiry-action { font-size: 0.9em; }
+
+.banner.expiry-critical { background: #fff0f0; border-color: #e03a3a; color: #7a0000; font-weight: 600; }
+.banner.expiry-warning  { background: #fff7ed; border-color: #d97706; color: #7c3500; }
+.banner.expiry-notice   { background: #fdf6e3; border-color: #d9b23a; color: #5a4a12; }
+.banner.expiry-info     { background: #f0f6ff; border-color: #6b9fd4; color: #1a3a5c; }
+
+:root[data-theme="dark"] .banner.expiry-critical { background: #2d0a0a; border-color: #c03030; color: #ffb3b3; }
+:root[data-theme="dark"] .banner.expiry-warning  { background: #2a1800; border-color: #c07a00; color: #ffd080; }
+:root[data-theme="dark"] .banner.expiry-notice   { background: #2a2410; border-color: #6b5a1e; color: #ecd9a2; }
+:root[data-theme="dark"] .banner.expiry-info     { background: #0d1e30; border-color: #3a6a9f; color: #a8c8e8; }
+
 .admin-link { margin-top: 0.55rem; font-family: var(--mono); font-size: 0.8rem; }
 
 .banner-cta { margin-top: 0.85rem; }
