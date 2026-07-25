@@ -136,3 +136,5 @@ app.MapRazorPages();
 app.MapPhotoApi();
 
 app.Run();
+
+public partial class Program;
