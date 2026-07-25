@@ -1,6 +1,6 @@
 # Shoebox
 
-A lightweight, self-hosted web app for collecting everyone's photos from a shared event into
+A super lightweight, simple, self-hosted web app for collecting everyone's photos from a shared event into
 one box. No accounts, no app. Share a link (or QR code), and people open it on their phone,
 type their name, and upload. Useful for weddings, festivals, and trips, where the good photos
 end up scattered across a dozen phones.
