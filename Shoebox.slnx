@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Shoebox.Web/Shoebox.Web.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Shoebox.Tests.Web/Shoebox.Tests.Web.csproj" />
+  </Folder>
 </Solution>
