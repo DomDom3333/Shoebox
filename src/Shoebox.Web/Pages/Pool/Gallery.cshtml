@@ -53,7 +53,7 @@
         </label>
         <div class="upload-actions">
             <button type="button" class="btn btn-primary" id="pick-files">Add photos</button>
-            <input type="file" id="file-input" accept="image/*,.heic,.heif" multiple hidden />
+            <input type="file" id="file-input" accept="image/*,video/*,.heic,.heif,.mp4,.m4v,.mov,.webm" multiple hidden />
         </div>
     </div>
     <p class="dropzone" id="dropzone">or drop photos anywhere on this page</p>
@@ -112,7 +112,7 @@
     @for (var i = 0; i < Model.Photos.Count; i++)
     {
         var photo = Model.Photos[i];
-        <figure class="tile @(photo.Mine ? "mine" : "")" style="--i: @Math.Min(i, 12)"
+        <figure class="tile @(photo.Mine ? "mine" : "") @(photo.IsVideo ? "video" : "")" style="--i: @Math.Min(i, 12)"
                 data-id="@photo.Id" data-uploader="@photo.UploaderName"
                 data-original="/api/photos/@photo.Id/original" data-filename="@photo.FileName">
             @if (photo.HasThumbnail)
@@ -122,6 +122,11 @@
             else
             {
                 <div class="no-thumb" title="Preview not available for this file"><span>@photo.FileName</span></div>
+            }
+            @if (photo.IsVideo)
+            {
+                @* Videos aren't played here: the tile shows a still frame, the file downloads. *@
+                <span class="video-badge">▶ Video</span>
             }
             <figcaption>
                 <span class="uploader">@photo.UploaderName</span>

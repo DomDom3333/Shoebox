@@ -52,6 +52,7 @@ For everyone else:
 - **Optional passwords**: a guest enters the password once per device; a signed cookie unlocks the box after that. Photo files live outside the web root and every image and download re-checks the cookie server-side, so a leaked image URL is useless without it.
 - **Fast gallery**: a WebP thumbnail grid plus a full-screen lightbox backed by a downscaled web-safe proxy, so viewing is sharp without sending a full-size original over the wire. Filter by uploader; photos sort by capture time (EXIF).
 - **HEIC / HEIF from phones**: decoded server-side, so iPhone photos get thumbnails and previews in every browser, not just Safari.
+- **Short videos, minimally**: MP4/MOV/WebM clips can be dropped in alongside the photos. Each gets a poster frame so it has a tile in the grid, and downloads as the original file. Nothing is transcoded and there is no in-browser playback.
 - **Flexible downloads**: a single photo, the whole box as a streamed ZIP, or "download others'": everything except your own uploads.
 - **Private admin link**: the creator can rename the box, change or remove the password, adjust expiry, delete individual photos, or delete the whole box.
 - **Auto-expiry**: a box can be set to delete itself a chosen number of days after the event.
@@ -123,7 +124,8 @@ Set via environment variables (`Shoebox__Key`) or the `Shoebox` section of
 | Setting | Default | Purpose |
 |---|---|---|
 | `DataPath` | `/data` (Docker), `data` (local) | Root folder for the database, photos, and keys |
-| `MaxFileSizeMb` | `50` | Per-file upload limit |
+| `MaxFileSizeMb` | `50` | Per-file upload limit for photos |
+| `MaxVideoFileSizeMb` | `200` | Per-file upload limit for videos |
 | `MaxImagePixels` | `100000000` | Reject images above this many pixels (bomb protection) |
 | `MaxImageDimension` | `30000` | Reject images wider or taller than this many pixels |
 | `UnlockAttemptsPerMinute` | `10` | Password-unlock attempts allowed per client IP per box per minute |
@@ -132,6 +134,8 @@ Set via environment variables (`Shoebox__Key`) or the `Shoebox` section of
 | `DefaultExpiryDays` | `0` | Expiry pre-selected on the create form (`0` = never) |
 | `CookieLifetimeDays` | `90` | How long unlock, identity, and admin cookies last |
 | `PublicBaseUrl` | *(derived from request)* | Public URL used in share links and QR codes |
+| `FfmpegPath` | `ffmpeg` | ffmpeg executable used for video poster frames (looked up on `PATH`) |
+| `VideoPosterSeconds` | `1` | How far into a video the poster frame is taken |
 
 ### Behind a reverse proxy
 
@@ -142,11 +146,11 @@ the client IP behind rate limiting and for the `Secure` cookie flag) would then 
 Two things to set:
 
 - `Shoebox__PublicBaseUrl`: your public address, so QR codes and share links are correct.
-- Your proxy's request-body limit: at least `MaxFileSizeMb` (for example `client_max_body_size 50m;` in nginx).
+- Your proxy's request-body limit: at least the larger of `MaxFileSizeMb` and `MaxVideoFileSizeMb` (for example `client_max_body_size 200m;` in nginx).
 
 ## Supported formats
 
-Uploads are accepted and decoded server-side (Magick.NET) in these formats:
+Photos are accepted and decoded server-side (Magick.NET) in these formats:
 
 | Format | Extensions |
 |---|---|
@@ -162,6 +166,29 @@ appear in the gallery everywhere. The original file is always stored unmodified 
 Download button returns. Files of the wrong type, over `MaxFileSizeMb`, or that don't decode as
 a real image within the pixel limits are rejected at upload.
 
+### Videos
+
+Video support is deliberately minimal — enough that the clip from the evening ends up in the
+same box as the photos, and no more:
+
+| Format | Extensions |
+|---|---|
+| MP4 | `.mp4`, `.m4v` |
+| QuickTime | `.mov` |
+| WebM | `.webm` |
+
+A clip is stored untouched, appears in the grid as a still frame with a **Video** badge, and is
+included in ZIP downloads like anything else. There is **no in-browser playback and no
+transcoding**: opening a video shows the poster frame, and the Download button hands over the
+original file to play locally. Videos are limited by `MaxVideoFileSizeMb` rather than
+`MaxFileSizeMb`, and uploads whose bytes aren't really one of the containers above are rejected.
+
+The poster frame is taken with `ffmpeg`, which the Docker image installs. If you run Shoebox
+outside Docker without ffmpeg on `PATH`, videos still upload and download fine — they just show
+a placeholder tile instead of a frame. (Point `Shoebox__FfmpegPath` at the binary if it lives
+somewhere unusual; an admin can re-run the frame grab on a photo or video with
+`POST /api/photos/{id}/reprocess`.)
+
 ## Under the hood
 
 ### Three renditions per photo
@@ -173,6 +200,9 @@ Each upload is decoded once and produces three files, so every context gets a ri
 | Thumbnail | ~480px | WebP | Gallery grid |
 | Display proxy | ~1600px | WebP | Full-screen lightbox |
 | Original | untouched | as uploaded | Downloads and ZIPs |
+
+A video goes through the same three slots: ffmpeg pulls one frame out of it, and that frame
+becomes the thumbnail and the display proxy. Only the original is ever video.
 
 ### Storage layout
 
@@ -194,7 +224,7 @@ Shoebox is intentionally lightweight, but the basics are done properly:
 - **Access is enforced on every byte.** Originals live outside `wwwroot`; the thumbnail, display, original, ZIP, and QR endpoints all re-check the signed access cookie, so requesting a URL without it returns 404 rather than the file.
 - **Cookies** (access, admin, identity) are HttpOnly and SameSite=Lax; access and admin state is carried in tamper-proof, Data-Protection-signed cookies.
 - **The admin link** carries a one-time capability key that is exchanged for a signed admin cookie and stripped from the URL on first use; POST handlers only accept the cookie, never the key.
-- **Uploads** are limited by size and by pixel dimensions (decompression-bomb protection), restricted to a raster-image allowlist (no SVG or active content), and rejected if they don't decode. Stored filenames are random GUIDs, so there is no path traversal or overwrite.
+- **Uploads** are limited by size and by pixel dimensions (decompression-bomb protection), restricted to a raster-image and video allowlist (no SVG or active content), and rejected if they don't decode (photos) or don't start with a real container header (videos). Stored filenames are random GUIDs, so there is no path traversal or overwrite.
 - **Responses** set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, and a lean `Referrer-Policy`.
 
 The **uploader identity** cookie (which powers the "you" badge, delete-your-own, and "download

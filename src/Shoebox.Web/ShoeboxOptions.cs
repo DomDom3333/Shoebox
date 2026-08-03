@@ -10,6 +10,12 @@ public class ShoeboxOptions
     public int MaxFileSizeMb { get; set; } = 50;
 
     /// <summary>
+    /// Per-file upload limit for videos, which are much larger than photos. Kept separate
+    /// so raising it doesn't also raise the photo limit.
+    /// </summary>
+    public int MaxVideoFileSizeMb { get; set; } = 200;
+
+    /// <summary>
     /// Reject images larger than this many pixels (width × height) before decoding,
     /// to stop decompression-bomb / pixel-flood uploads. 100 MP clears any real camera.
     /// </summary>
@@ -44,5 +50,17 @@ public class ShoeboxOptions
     /// </summary>
     public string? PublicBaseUrl { get; set; }
 
+    /// <summary>
+    /// ffmpeg executable used to grab the poster frame from an uploaded video. Looked up on
+    /// PATH by default (the Docker image ships it). Videos still upload and download without
+    /// it; they just fall back to a placeholder tile instead of a frame.
+    /// </summary>
+    public string FfmpegPath { get; set; } = "ffmpeg";
+
+    /// <summary>How far into a video the poster frame is taken, in seconds.</summary>
+    public double VideoPosterSeconds { get; set; } = 1;
+
     public long MaxFileSizeBytes => MaxFileSizeMb * 1024L * 1024L;
+
+    public long MaxVideoFileSizeBytes => MaxVideoFileSizeMb * 1024L * 1024L;
 }

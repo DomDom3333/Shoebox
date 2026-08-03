@@ -13,6 +13,13 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
+# ffmpeg is used for exactly one thing: grabbing a single poster frame from uploaded
+# videos. Nothing is transcoded or streamed. Without it videos still upload and download,
+# they just get a placeholder tile instead of a frame.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Photos, SQLite DB and data-protection keys all live under /data — mount a volume here.
 # Create the dirs owned by APP_UID: a freshly-created named volume inherits that
 # ownership, so the non-root app can write to it with no privileged entrypoint.

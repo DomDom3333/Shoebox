@@ -277,8 +277,13 @@
     // than a 50MB phone original, and viewable in every browser (including HEIC). The
     // Download button always fetches the true original.
     const base = tile.dataset.original.replace(/\/original$/, "");
+    const isVideo = tile.classList.contains("video");
     lbImg.src = base + "/display";
-    lbCaption.textContent = `${tile.dataset.uploader} · ${tile.dataset.filename}`;
+    // Videos aren't played in the browser: the lightbox shows the poster frame and the
+    // Download button hands over the clip itself.
+    lbCaption.textContent =
+      `${tile.dataset.uploader} · ${tile.dataset.filename}` + (isVideo ? " · video, download to play" : "");
+    lbDownload.textContent = isVideo ? "Download video" : "Download";
     lbDownload.href = tile.dataset.original + "?download=true";
     lightbox.hidden = false;
     document.body.style.overflow = "hidden";

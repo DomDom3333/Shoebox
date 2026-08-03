@@ -22,4 +22,11 @@ public class Photo
     public DateTime? TakenAt { get; set; }
 
     public DateTime SortDate => TakenAt ?? UploadedAt;
+
+    /// <summary>
+    /// A video: stored and downloadable like any other upload, shown in the grid as a poster
+    /// frame, never played back in the browser. Derived from the content type set at upload,
+    /// so no column of its own.
+    /// </summary>
+    public bool IsVideo => ContentType.StartsWith("video/", StringComparison.Ordinal);
 }

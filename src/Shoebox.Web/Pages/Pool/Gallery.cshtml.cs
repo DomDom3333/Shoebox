@@ -8,7 +8,7 @@ namespace Shoebox.Web.Pages.Pool;
 
 public record PhotoTile(
     Guid Id, string UploaderName, string FileName, bool Mine, bool HasThumbnail,
-    int LikeCount, bool LikedByMe);
+    int LikeCount, bool LikedByMe, bool IsVideo);
 public record UploaderSummary(string Name, int Count);
 
 public class GalleryModel(
@@ -66,7 +66,7 @@ public class GalleryModel(
         Photos = photos
             .Select(p => new PhotoTile(
                 p.Id, p.UploaderName, p.OriginalFileName, p.UploaderUid == uid, p.HasThumbnail,
-                likeCounts.GetValueOrDefault(p.Id), myLikes.Contains(p.Id)))
+                likeCounts.GetValueOrDefault(p.Id), myLikes.Contains(p.Id), p.IsVideo))
             .ToList();
         HasOthers = Photos.Any(p => !p.Mine);
         Uploaders = photos

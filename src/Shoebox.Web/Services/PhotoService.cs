@@ -16,9 +16,10 @@ public class PhotoService(
     AppDbContext db,
     StoragePaths paths,
     ImageRenderer renderer,
+    VideoRenderer videos,
     IOptions<ShoeboxOptions> options)
 {
-    private static readonly Dictionary<string, string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string> AllowedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         [".jpg"] = "image/jpeg",
         [".jpeg"] = "image/jpeg",
@@ -29,15 +30,29 @@ public class PhotoService(
         [".heif"] = "image/heif",
     };
 
+    private static readonly Dictionary<string, string> AllowedVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".mp4"] = "video/mp4",
+        [".m4v"] = "video/mp4",
+        [".mov"] = "video/quicktime",
+        [".webm"] = "video/webm",
+    };
+
     public async Task<UploadResult> SaveAsync(Pool pool, IFormFile file, string uploaderName, Guid uploaderUid,
         CancellationToken ct = default)
     {
         var fileName = Path.GetFileName(file.FileName);
         var extension = Path.GetExtension(fileName);
 
-        if (!AllowedExtensions.TryGetValue(extension, out var contentType))
+        var isVideo = false;
+        if (!AllowedImageExtensions.TryGetValue(extension, out var contentType))
         {
-            return UploadResult.Rejected(fileName, "Unsupported file type");
+            if (!AllowedVideoExtensions.TryGetValue(extension, out contentType))
+            {
+                return UploadResult.Rejected(fileName, "Unsupported file type");
+            }
+
+            isVideo = true;
         }
 
         if (file.Length == 0)
@@ -45,9 +60,12 @@ public class PhotoService(
             return UploadResult.Rejected(fileName, "Empty file");
         }
 
-        if (file.Length > options.Value.MaxFileSizeBytes)
+        var (limitBytes, limitMb) = isVideo
+            ? (options.Value.MaxVideoFileSizeBytes, options.Value.MaxVideoFileSizeMb)
+            : (options.Value.MaxFileSizeBytes, options.Value.MaxFileSizeMb);
+        if (file.Length > limitBytes)
         {
-            return UploadResult.Rejected(fileName, $"Larger than {options.Value.MaxFileSizeMb} MB");
+            return UploadResult.Rejected(fileName, $"Larger than {limitMb} MB");
         }
 
         Directory.CreateDirectory(paths.OriginalsDirectory(pool.Id));
@@ -105,24 +123,46 @@ public class PhotoService(
         };
 
         var originalPath = paths.OriginalFile(pool.Id, photo.Id, photo.Extension);
+        var thumbPath = paths.ThumbFile(pool.Id, photo.Id);
+        var displayPath = paths.DisplayFile(pool.Id, photo.Id);
         File.Move(tempPath, originalPath);
 
-        var info = await renderer.ProcessAsync(
-            originalPath, paths.ThumbFile(pool.Id, photo.Id), paths.DisplayFile(pool.Id, photo.Id), ct);
-        if (info is null)
+        if (isVideo && !VideoRenderer.LooksLikeVideo(originalPath))
+        {
+            // The extension says video but the bytes don't; don't store something we'd
+            // hand back later with a video content type.
+            DeleteIfExists(originalPath);
+            return UploadResult.Rejected(fileName, "Couldn't read this video (it may be corrupt or an unsupported format)");
+        }
+
+        var info = isVideo
+            ? await videos.RenderPosterAsync(originalPath, thumbPath, displayPath, ct)
+            : await renderer.ProcessAsync(originalPath, thumbPath, displayPath, ct);
+
+        if (info is null && !isVideo)
         {
             // Not a readable image within limits: corrupt, mislabelled, or an
             // oversized decode bomb. Don't store or serve it.
             DeleteIfExists(originalPath);
-            DeleteIfExists(paths.ThumbFile(pool.Id, photo.Id));
-            DeleteIfExists(paths.DisplayFile(pool.Id, photo.Id));
+            DeleteIfExists(thumbPath);
+            DeleteIfExists(displayPath);
             return UploadResult.Rejected(fileName, "Couldn't read this image (it may be corrupt or too large)");
         }
 
-        photo.Width = info.Width;
-        photo.Height = info.Height;
-        photo.TakenAt = info.TakenAt;
-        photo.HasThumbnail = true;
+        if (info is null)
+        {
+            // A video we couldn't take a frame from (no ffmpeg on the host, or a codec it
+            // doesn't know). The clip is still worth keeping: it just gets a placeholder tile.
+            DeleteIfExists(thumbPath);
+            DeleteIfExists(displayPath);
+        }
+        else
+        {
+            photo.Width = info.Width;
+            photo.Height = info.Height;
+            photo.TakenAt = info.TakenAt;
+            photo.HasThumbnail = true;
+        }
 
         db.Photos.Add(photo);
         await db.SaveChangesAsync(ct);
@@ -135,8 +175,11 @@ public class PhotoService(
         if (!File.Exists(originalPath))
             return false;
 
-        var info = await renderer.ProcessAsync(
-            originalPath, paths.ThumbFile(photo.PoolId, photo.Id), paths.DisplayFile(photo.PoolId, photo.Id), ct);
+        var thumbPath = paths.ThumbFile(photo.PoolId, photo.Id);
+        var displayPath = paths.DisplayFile(photo.PoolId, photo.Id);
+        var info = photo.IsVideo
+            ? await videos.RenderPosterAsync(originalPath, thumbPath, displayPath, ct)
+            : await renderer.ProcessAsync(originalPath, thumbPath, displayPath, ct);
         if (info is null)
             return false;
 

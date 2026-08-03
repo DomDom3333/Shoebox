@@ -38,6 +38,7 @@ builder.Services.AddSingleton<UploaderIdentity>();
 builder.Services.AddSingleton<PoolAccessService>();
 builder.Services.AddSingleton<ShareLinkService>();
 builder.Services.AddSingleton<ImageRenderer>();
+builder.Services.AddSingleton<VideoRenderer>();
 builder.Services.AddSingleton<ZipStreamService>();
 builder.Services.AddScoped<PoolService>();
 builder.Services.AddScoped<PhotoService>();
@@ -70,8 +71,9 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
-// Uploads are sent one file per request from the browser; allow the max file size plus form overhead.
-var uploadLimit = opts.MaxFileSizeBytes + 1024 * 1024;
+// Uploads are sent one file per request from the browser; allow the largest accepted file
+// (videos are allowed to be bigger than photos) plus form overhead.
+var uploadLimit = Math.Max(opts.MaxFileSizeBytes, opts.MaxVideoFileSizeBytes) + 1024 * 1024;
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = uploadLimit);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = uploadLimit);
 
