@@ -6,19 +6,19 @@ using QRCoder;
 
 namespace Shoebox.Web.Api;
 
-public static class PhotoEndpoints
+public static class MediaEndpoints
 {
-    public static void MapPhotoApi(this IEndpointRouteBuilder app)
+    public static void MapMediaApi(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api");
 
-        api.MapPost("/p/{code}/photos", UploadAsync).DisableAntiforgery();
-        api.MapGet("/photos/{id:guid}/thumb", ServeThumbAsync);
-        api.MapGet("/photos/{id:guid}/display", ServeDisplayAsync);
-        api.MapGet("/photos/{id:guid}/original", ServeOriginalAsync);
-        api.MapDelete("/photos/{id:guid}", DeletePhotoAsync);
-        api.MapPost("/photos/{id:guid}/reprocess", ReprocessAsync);
-        api.MapPost("/photos/{id:guid}/like", ToggleLikeAsync).DisableAntiforgery();
+        api.MapPost("/p/{code}/media", UploadAsync).DisableAntiforgery();
+        api.MapGet("/media/{id:guid}/thumb", ServeThumbAsync);
+        api.MapGet("/media/{id:guid}/display", ServeDisplayAsync);
+        api.MapGet("/media/{id:guid}/original", ServeOriginalAsync);
+        api.MapDelete("/media/{id:guid}", DeleteMediaAsync);
+        api.MapPost("/media/{id:guid}/reprocess", ReprocessAsync);
+        api.MapPost("/media/{id:guid}/like", ToggleLikeAsync).DisableAntiforgery();
         api.MapGet("/p/{code}/zip", DownloadZipAsync);
         api.MapGet("/p/{code}/qr", QrCodeAsync);
     }
@@ -28,7 +28,7 @@ public static class PhotoEndpoints
         HttpRequest request,
         AppDbContext db,
         PoolService pools,
-        PhotoService photos,
+        MediaService media,
         PoolAccessService access,
         UploaderIdentity identity)
     {
@@ -66,7 +66,7 @@ public static class PhotoEndpoints
         var results = new List<UploadResult>();
         foreach (var file in form.Files)
         {
-            results.Add(await photos.SaveAsync(pool, file, uploaderName, uid, request.HttpContext.RequestAborted));
+            results.Add(await media.SaveAsync(pool, file, uploaderName, uid, request.HttpContext.RequestAborted));
         }
 
         return Results.Ok(new { results });
@@ -75,14 +75,14 @@ public static class PhotoEndpoints
     private static async Task<IResult> ServeThumbAsync(
         Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths)
     {
-        var photo = await FindAccessiblePhotoAsync(id, context, db, access);
-        if (photo is null)
+        var media = await FindAccessibleMediaAsync(id, context, db, access);
+        if (media is null)
         {
             return Results.NotFound();
         }
 
-        var thumbPath = paths.ThumbFile(photo.PoolId, photo.Id);
-        if (!photo.HasThumbnail || !File.Exists(thumbPath))
+        var thumbPath = paths.ThumbFile(media.PoolId, media.Id);
+        if (!media.HasThumbnail || !File.Exists(thumbPath))
         {
             return Results.NotFound();
         }
@@ -94,14 +94,14 @@ public static class PhotoEndpoints
     private static async Task<IResult> ServeDisplayAsync(
         Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths)
     {
-        var photo = await FindAccessiblePhotoAsync(id, context, db, access);
-        if (photo is null)
+        var media = await FindAccessibleMediaAsync(id, context, db, access);
+        if (media is null)
         {
             return Results.NotFound();
         }
 
-        var displayPath = paths.DisplayFile(photo.PoolId, photo.Id);
-        if (!photo.HasThumbnail || !File.Exists(displayPath))
+        var displayPath = paths.DisplayFile(media.PoolId, media.Id);
+        if (!media.HasThumbnail || !File.Exists(displayPath))
         {
             return Results.NotFound();
         }
@@ -114,76 +114,76 @@ public static class PhotoEndpoints
         Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths,
         [FromQuery] bool download = false)
     {
-        var photo = await FindAccessiblePhotoAsync(id, context, db, access);
-        if (photo is null)
+        var media = await FindAccessibleMediaAsync(id, context, db, access);
+        if (media is null)
         {
             return Results.NotFound();
         }
 
-        var path = paths.OriginalFile(photo.PoolId, photo.Id, photo.Extension);
+        var path = paths.OriginalFile(media.PoolId, media.Id, media.Extension);
         if (!File.Exists(path))
         {
             return Results.NotFound();
         }
 
         context.Response.Headers.CacheControl = "private, max-age=86400";
-        return Results.File(path, photo.ContentType,
-            fileDownloadName: download ? photo.OriginalFileName : null,
+        return Results.File(path, media.ContentType,
+            fileDownloadName: download ? media.OriginalFileName : null,
             enableRangeProcessing: true);
     }
 
     private static async Task<IResult> ReprocessAsync(
-        Guid id, HttpContext context, AppDbContext db, PhotoService photos, PoolAccessService access)
+        Guid id, HttpContext context, AppDbContext db, MediaService media, PoolAccessService access)
     {
-        var photo = await db.Photos.Include(p => p.Pool).FirstOrDefaultAsync(p => p.Id == id);
-        if (photo is null)
+        var item = await db.Media.Include(m => m.Pool).FirstOrDefaultAsync(m => m.Id == id);
+        if (item is null)
             return Results.NotFound();
-        if (!access.IsAdmin(context, photo.PoolId))
+        if (!access.IsAdmin(context, item.PoolId))
             return Results.StatusCode(StatusCodes.Status403Forbidden);
 
-        var ok = await photos.ReprocessAsync(photo, context.RequestAborted);
+        var ok = await media.ReprocessAsync(item, context.RequestAborted);
         return ok
             ? Results.Ok(new { status = "reprocessed" })
-            : Results.UnprocessableEntity(new { error = "Could not render image (original missing or unreadable)" });
+            : Results.UnprocessableEntity(new { error = "Could not render this file (original missing or unreadable)" });
     }
 
-    private static async Task<IResult> DeletePhotoAsync(
-        Guid id, HttpContext context, AppDbContext db, PhotoService photos,
+    private static async Task<IResult> DeleteMediaAsync(
+        Guid id, HttpContext context, AppDbContext db, MediaService media,
         PoolAccessService access, UploaderIdentity identity)
     {
-        var photo = await db.Photos.Include(p => p.Pool).FirstOrDefaultAsync(p => p.Id == id);
-        if (photo is null)
+        var item = await db.Media.Include(m => m.Pool).FirstOrDefaultAsync(m => m.Id == id);
+        if (item is null)
         {
             return Results.NotFound();
         }
 
-        var isAdmin = access.IsAdmin(context, photo.PoolId);
-        var isOwner = photo.UploaderUid == identity.GetOrCreateUid(context);
+        var isAdmin = access.IsAdmin(context, item.PoolId);
+        var isOwner = item.UploaderUid == identity.GetOrCreateUid(context);
         if (!isAdmin && !isOwner)
         {
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        await photos.DeleteAsync(photo);
+        await media.DeleteAsync(item);
         return Results.NoContent();
     }
 
     private static async Task<IResult> ToggleLikeAsync(
         Guid id, HttpContext context, AppDbContext db, PoolAccessService access, UploaderIdentity identity)
     {
-        var photo = await FindAccessiblePhotoAsync(id, context, db, access);
-        if (photo is null)
+        var media = await FindAccessibleMediaAsync(id, context, db, access);
+        if (media is null)
         {
             return Results.NotFound();
         }
 
         var uid = identity.GetOrCreateUid(context);
-        var existing = await db.Likes.FirstOrDefaultAsync(l => l.PhotoId == id && l.UploaderUid == uid);
+        var existing = await db.Likes.FirstOrDefaultAsync(l => l.MediaId == id && l.UploaderUid == uid);
 
         bool liked;
         if (existing is null)
         {
-            db.Likes.Add(new PhotoLike { PhotoId = id, UploaderUid = uid, CreatedAt = DateTime.UtcNow });
+            db.Likes.Add(new MediaLike { MediaId = id, UploaderUid = uid, CreatedAt = DateTime.UtcNow });
             liked = true;
         }
         else
@@ -194,7 +194,7 @@ public static class PhotoEndpoints
 
         await db.SaveChangesAsync();
 
-        var count = await db.Likes.CountAsync(l => l.PhotoId == id);
+        var count = await db.Likes.CountAsync(l => l.MediaId == id);
         return Results.Ok(new { liked, count });
     }
 
@@ -214,15 +214,15 @@ public static class PhotoEndpoints
             return Results.Unauthorized();
         }
 
-        var query = db.Photos.Where(p => p.PoolId == pool.Id);
+        var query = db.Media.Where(m => m.PoolId == pool.Id);
         if (mode == "others")
         {
             var uid = identity.GetOrCreateUid(context);
-            query = query.Where(p => p.UploaderUid != uid);
+            query = query.Where(m => m.UploaderUid != uid);
         }
 
-        var photos = await query.OrderBy(p => p.TakenAt ?? p.UploadedAt).ToListAsync();
-        if (photos.Count == 0)
+        var items = await query.OrderBy(m => m.TakenAt ?? m.UploadedAt).ToListAsync();
+        if (items.Count == 0)
         {
             return Results.NotFound();
         }
@@ -238,7 +238,7 @@ public static class PhotoEndpoints
         var zipName = $"{SafeFileName(pool.Name)}{(mode == "others" ? "_others" : "")}.zip";
         context.Response.ContentType = "application/zip";
         context.Response.Headers.ContentDisposition = $"attachment; filename=\"{zipName}\"";
-        await zip.WriteAsync(photos, context.Response.Body, context.RequestAborted);
+        await zip.WriteAsync(items, context.Response.Body, context.RequestAborted);
         return Results.Empty;
     }
 
@@ -264,17 +264,17 @@ public static class PhotoEndpoints
         return Results.File(png, "image/png");
     }
 
-    private static async Task<Photo?> FindAccessiblePhotoAsync(
+    private static async Task<Media?> FindAccessibleMediaAsync(
         Guid id, HttpContext context, AppDbContext db, PoolAccessService access)
     {
-        var photo = await db.Photos.Include(p => p.Pool).FirstOrDefaultAsync(p => p.Id == id);
-        if (photo is null || !access.CanView(context, photo.Pool))
+        var media = await db.Media.Include(m => m.Pool).FirstOrDefaultAsync(m => m.Id == id);
+        if (media is null || !access.CanView(context, media.Pool))
         {
-            // 404 (not 401) so URLs leak nothing about whether a photo exists.
+            // 404 (not 401) so URLs leak nothing about whether an item exists.
             return null;
         }
 
-        return photo;
+        return media;
     }
 
     private static string SafeFileName(string name)

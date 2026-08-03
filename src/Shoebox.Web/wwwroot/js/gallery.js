@@ -95,7 +95,7 @@
       form.append("files", file, file.name);
 
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `/api/p/${poolCode}/photos`);
+      xhr.open("POST", `/api/p/${poolCode}/media`);
       xhr.upload.addEventListener("progress", (e) => {
         if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       });
@@ -230,7 +230,7 @@
     const tile = btn.closest(".tile");
     btn.disabled = true;
     try {
-      const res = await fetch(`/api/photos/${tile.dataset.id}/like`, { method: "POST" });
+      const res = await fetch(`/api/media/${tile.dataset.id}/like`, { method: "POST" });
       if (!res.ok) throw new Error("like failed");
       const data = await res.json();
       setLiked(btn, data.liked, data.count);
@@ -264,7 +264,7 @@
     const tile = btn.closest(".tile");
     if (!confirm("Delete this photo?")) return;
 
-    const res = await fetch(`/api/photos/${tile.dataset.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/media/${tile.dataset.id}`, { method: "DELETE" });
     if (res.ok) {
       tile.remove();
     } else {

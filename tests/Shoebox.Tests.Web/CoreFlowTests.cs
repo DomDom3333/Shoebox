@@ -31,16 +31,16 @@ public class CoreFlowTests
 
         var added = await UploadAsync(owner, code, "Alice", "party.gif", MakeGif(frameCount: 3));
         Assert.Equal("added", added.Status);
-        var photoId = Assert.IsType<Guid>(added.PhotoId);
+        var mediaId = Assert.IsType<Guid>(added.MediaId);
 
         // The lightbox plays this one, so the proxy has to keep every frame.
-        var display = await owner.GetAsync($"/api/photos/{photoId}/display");
+        var display = await owner.GetAsync($"/api/media/{mediaId}/display");
         Assert.Equal(HttpStatusCode.OK, display.StatusCode);
         Assert.Equal("image/webp", display.Content.Headers.ContentType?.MediaType);
         Assert.Equal(3, FrameCount(await display.Content.ReadAsByteArrayAsync()));
 
         // The grid holds still: a box full of GIFs shouldn't flicker at everyone at once.
-        var thumb = await owner.GetAsync($"/api/photos/{photoId}/thumb");
+        var thumb = await owner.GetAsync($"/api/media/{mediaId}/thumb");
         Assert.Equal(HttpStatusCode.OK, thumb.StatusCode);
         Assert.Equal(1, FrameCount(await thumb.Content.ReadAsByteArrayAsync()));
 
@@ -56,9 +56,9 @@ public class CoreFlowTests
         var code = await CreateBoxAsync(owner);
 
         var added = await UploadAsync(owner, code, "Alice", "still.gif", MakeGif(frameCount: 1));
-        var photoId = Assert.IsType<Guid>(added.PhotoId);
+        var mediaId = Assert.IsType<Guid>(added.MediaId);
 
-        var display = await owner.GetAsync($"/api/photos/{photoId}/display");
+        var display = await owner.GetAsync($"/api/media/{mediaId}/display");
         Assert.Equal(1, FrameCount(await display.Content.ReadAsByteArrayAsync()));
 
         var gallery = await owner.GetAsync($"/p/{code}");
@@ -90,25 +90,25 @@ public class CoreFlowTests
 
         var added = await UploadAsync(owner, code, "Alice", "clip.mp4", Mp4Header);
         Assert.Equal("added", added.Status);
-        var photoId = Assert.IsType<Guid>(added.PhotoId);
+        var mediaId = Assert.IsType<Guid>(added.MediaId);
 
         // No playback: the clip comes back as the stored original, byte for byte.
-        var original = await owner.GetAsync($"/api/photos/{photoId}/original");
+        var original = await owner.GetAsync($"/api/media/{mediaId}/original");
         Assert.Equal(HttpStatusCode.OK, original.StatusCode);
         Assert.Equal("video/mp4", original.Content.Headers.ContentType?.MediaType);
         Assert.Equal(Mp4Header, await original.Content.ReadAsByteArrayAsync());
 
         // Nothing to take a frame from, so the clip keeps its place in the box without a poster.
-        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/api/photos/{photoId}/thumb")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/api/media/{mediaId}/thumb")).StatusCode);
 
         var gallery = await owner.GetAsync($"/p/{code}");
         gallery.EnsureSuccessStatusCode();
         Assert.Contains("media-badge\">▶ Video", await gallery.Content.ReadAsStringAsync());
 
-        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/photos/{photoId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/media/{mediaId}")).StatusCode);
         Assert.Empty(Directory.EnumerateFiles(
             Path.Combine(factory.DataPath, "pools"),
-            $"{photoId:N}.*",
+            $"{mediaId:N}.*",
             SearchOption.AllDirectories));
     }
 
@@ -132,14 +132,14 @@ public class CoreFlowTests
             var added = await UploadAsync(
                 owner, code, "Alice", "clip.mp4", await File.ReadAllBytesAsync(clipPath));
             Assert.Equal("added", added.Status);
-            var photoId = Assert.IsType<Guid>(added.PhotoId);
+            var mediaId = Assert.IsType<Guid>(added.MediaId);
 
-            var thumb = await owner.GetAsync($"/api/photos/{photoId}/thumb");
+            var thumb = await owner.GetAsync($"/api/media/{mediaId}/thumb");
             Assert.Equal(HttpStatusCode.OK, thumb.StatusCode);
             Assert.Equal("image/webp", thumb.Content.Headers.ContentType?.MediaType);
             Assert.Equal(
                 HttpStatusCode.OK,
-                (await owner.GetAsync($"/api/photos/{photoId}/display")).StatusCode);
+                (await owner.GetAsync($"/api/media/{mediaId}/display")).StatusCode);
         }
         finally
         {
@@ -201,7 +201,7 @@ public class CoreFlowTests
         var result = await UploadAsync(owner, code, "Alice", "not-really.mp4", FortyPixelPng);
 
         Assert.Equal("rejected", result.Status);
-        Assert.Null(result.PhotoId);
+        Assert.Null(result.MediaId);
         Assert.DoesNotContain(
             Directory.EnumerateFiles(
                 Path.Combine(factory.DataPath, "pools"),
@@ -219,16 +219,16 @@ public class CoreFlowTests
 
         var added = await UploadAsync(owner, code, "Alice", "sample.png", FortyPixelPng);
         Assert.Equal("added", added.Status);
-        var photoId = Assert.IsType<Guid>(added.PhotoId);
+        var mediaId = Assert.IsType<Guid>(added.MediaId);
 
-        var thumb = await owner.GetAsync($"/api/photos/{photoId}/thumb");
+        var thumb = await owner.GetAsync($"/api/media/{mediaId}/thumb");
         Assert.Equal(HttpStatusCode.OK, thumb.StatusCode);
         Assert.Equal("image/webp", thumb.Content.Headers.ContentType?.MediaType);
 
         using var guest = CreateClient(factory);
         Assert.Equal(
             HttpStatusCode.NotFound,
-            (await guest.GetAsync($"/api/photos/{photoId}/original")).StatusCode);
+            (await guest.GetAsync($"/api/media/{mediaId}/original")).StatusCode);
 
         var wrongUnlock = await PostRazorFormAsync(
             guest,
@@ -244,9 +244,9 @@ public class CoreFlowTests
         Assert.Equal(HttpStatusCode.Redirect, correctUnlock.StatusCode);
         Assert.Equal(
             HttpStatusCode.OK,
-            (await guest.GetAsync($"/api/photos/{photoId}/original")).StatusCode);
+            (await guest.GetAsync($"/api/media/{mediaId}/original")).StatusCode);
 
-        var like = await guest.PostAsync($"/api/photos/{photoId}/like", content: null);
+        var like = await guest.PostAsync($"/api/media/{mediaId}/like", content: null);
         Assert.Equal(HttpStatusCode.OK, like.StatusCode);
         var likeBody = await like.Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(likeBody.GetProperty("liked").GetBoolean());
@@ -254,16 +254,16 @@ public class CoreFlowTests
 
         Assert.Equal(
             HttpStatusCode.Forbidden,
-            (await guest.DeleteAsync($"/api/photos/{photoId}")).StatusCode);
+            (await guest.DeleteAsync($"/api/media/{mediaId}")).StatusCode);
         Assert.Equal(
             HttpStatusCode.NoContent,
-            (await owner.DeleteAsync($"/api/photos/{photoId}")).StatusCode);
+            (await owner.DeleteAsync($"/api/media/{mediaId}")).StatusCode);
         Assert.Equal(
             HttpStatusCode.NotFound,
-            (await owner.GetAsync($"/api/photos/{photoId}/original")).StatusCode);
+            (await owner.GetAsync($"/api/media/{mediaId}/original")).StatusCode);
         Assert.Empty(Directory.EnumerateFiles(
             Path.Combine(factory.DataPath, "pools"),
-            $"{photoId:N}.*",
+            $"{mediaId:N}.*",
             SearchOption.AllDirectories));
     }
 
@@ -277,7 +277,7 @@ public class CoreFlowTests
         var result = await UploadAsync(owner, code, "Alice", "broken.jpg", [1, 2, 3, 4]);
 
         Assert.Equal("rejected", result.Status);
-        Assert.Null(result.PhotoId);
+        Assert.Null(result.MediaId);
         Assert.Contains("read", result.Reason, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(
             Directory.EnumerateFiles(
@@ -343,7 +343,7 @@ public class CoreFlowTests
             new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
         form.Add(file, "files", fileName);
 
-        var response = await client.PostAsync($"/api/p/{code}/photos", form);
+        var response = await client.PostAsync($"/api/p/{code}/media", form);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<UploadEnvelope>();
         return Assert.Single(Assert.IsType<UploadEnvelope>(body).Results);
@@ -353,6 +353,6 @@ public class CoreFlowTests
     private sealed record UploadResponse(
         string FileName,
         string Status,
-        Guid? PhotoId,
+        Guid? MediaId,
         string? Reason);
 }

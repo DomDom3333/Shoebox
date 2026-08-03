@@ -40,8 +40,15 @@ builder.Services.AddSingleton<ShareLinkService>();
 builder.Services.AddSingleton<ImageRenderer>();
 builder.Services.AddSingleton<VideoRenderer>();
 builder.Services.AddSingleton<ZipStreamService>();
+
+// One handler per kind of upload: everything that differs between a photo and a video
+// lives behind this, so nothing downstream has to care which it got.
+builder.Services.AddSingleton<IMediaHandler, PhotoHandler>();
+builder.Services.AddSingleton<IMediaHandler, VideoHandler>();
+builder.Services.AddSingleton<MediaHandlers>();
+
 builder.Services.AddScoped<PoolService>();
-builder.Services.AddScoped<PhotoService>();
+builder.Services.AddScoped<MediaService>();
 builder.Services.AddHostedService<CleanupService>();
 
 builder.Services.AddRazorPages();
@@ -90,33 +97,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     scope.ServiceProvider.GetRequiredService<StoragePaths>().EnsureBaseDirectories();
-    var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await appDb.Database.EnsureCreatedAsync();
-
-    // EnsureCreated builds the full schema only for a brand-new database; it never
-    // alters one that already has tables. This project has no migrations, so tables
-    // added after the first release are created here, idempotently, for existing DBs.
-    await appDb.Database.ExecuteSqlRawAsync(
-        """
-        CREATE TABLE IF NOT EXISTS "Likes" (
-            "PhotoId" TEXT NOT NULL,
-            "UploaderUid" TEXT NOT NULL,
-            "CreatedAt" TEXT NOT NULL,
-            CONSTRAINT "PK_Likes" PRIMARY KEY ("PhotoId", "UploaderUid"),
-            CONSTRAINT "FK_Likes_Photos_PhotoId" FOREIGN KEY ("PhotoId")
-                REFERENCES "Photos" ("Id") ON DELETE CASCADE
-        );
-        """);
-
-    // Same story for columns added later. SQLite has no "ADD COLUMN IF NOT EXISTS", so ask.
-    var photoColumns = await appDb.Database
-        .SqlQueryRaw<string>("SELECT name AS Value FROM pragma_table_info('Photos')")
-        .ToListAsync();
-    if (!photoColumns.Contains("HasAnimation"))
-    {
-        await appDb.Database.ExecuteSqlRawAsync(
-            """ALTER TABLE "Photos" ADD COLUMN "HasAnimation" INTEGER NOT NULL DEFAULT 0;""");
-    }
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>().UpgradeAsync();
 }
 
 app.UseForwardedHeaders();
@@ -145,7 +126,7 @@ app.UseRouting();
 app.UseRateLimiter();
 
 app.MapRazorPages();
-app.MapPhotoApi();
+app.MapMediaApi();
 
 app.Run();
 

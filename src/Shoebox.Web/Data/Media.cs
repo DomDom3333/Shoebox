@@ -1,10 +1,23 @@
 namespace Shoebox.Web.Data;
 
-public class Photo
+/// <summary>
+/// What was uploaded. Every kind is stored, served, liked, zipped and deleted the same way;
+/// the kind only decides how the two renditions get made at upload time.
+/// </summary>
+public enum MediaKind
+{
+    Photo = 0,
+    Video = 1,
+}
+
+/// <summary>One file in a box, plus the renditions derived from it.</summary>
+public class Media
 {
     public Guid Id { get; set; }
     public Guid PoolId { get; set; }
     public Pool Pool { get; set; } = null!;
+
+    public MediaKind Kind { get; set; }
 
     public string OriginalFileName { get; set; } = "";
     public string Extension { get; set; } = "";
@@ -28,11 +41,4 @@ public class Photo
     public DateTime? TakenAt { get; set; }
 
     public DateTime SortDate => TakenAt ?? UploadedAt;
-
-    /// <summary>
-    /// A video: stored and downloadable like any other upload, shown in the grid as a poster
-    /// frame, never played back in the browser. Derived from the content type set at upload,
-    /// so no column of its own.
-    /// </summary>
-    public bool IsVideo => ContentType.StartsWith("video/", StringComparison.Ordinal);
 }

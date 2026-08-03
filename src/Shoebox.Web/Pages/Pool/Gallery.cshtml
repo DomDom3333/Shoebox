@@ -22,7 +22,7 @@
     }
     <p class="pool-meta">
         Box code: <strong class="code">@Model.Pool.Code</strong>
-        · @Model.Photos.Count photo@(Model.Photos.Count == 1 ? "" : "s")
+        · @Model.Items.Count photo@(Model.Items.Count == 1 ? "" : "s")
         @if (Model.Uploaders.Count > 0)
         {
             <text>· from @Model.Uploaders.Count @(Model.Uploaders.Count == 1 ? "person" : "people")</text>
@@ -69,7 +69,7 @@
     <label class="filter">
         Show:
         <select id="uploader-filter">
-            <option value="">Everyone (@Model.Photos.Count)</option>
+            <option value="">Everyone (@Model.Items.Count)</option>
             @foreach (var uploader in Model.Uploaders)
             {
                 <option value="@uploader.Name">@uploader.Name (@uploader.Count)</option>
@@ -77,7 +77,7 @@
         </select>
     </label>
     <div class="download-buttons">
-        @if (Model.Photos.Count > 0)
+        @if (Model.Items.Count > 0)
         {
             <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=all">Download all photos</a>
             @* Phone-only: revealed by gallery.js on touch devices whose browser can
@@ -101,7 +101,7 @@
     </div>
 </section>
 
-@if (Model.Photos.Count == 0)
+@if (Model.Items.Count == 0)
 {
     <div class="empty-state">
         <p><span class="big">Nothing here yet.</span> You were there. Prove it.</p>
@@ -109,44 +109,44 @@
 }
 
 <div class="gallery" id="gallery">
-    @for (var i = 0; i < Model.Photos.Count; i++)
+    @for (var i = 0; i < Model.Items.Count; i++)
     {
-        var photo = Model.Photos[i];
-        <figure class="tile @(photo.Mine ? "mine" : "") @(photo.IsVideo ? "video" : "") @(photo.IsAnimated ? "animated" : "")" style="--i: @Math.Min(i, 12)"
-                data-id="@photo.Id" data-uploader="@photo.UploaderName"
-                data-original="/api/photos/@photo.Id/original" data-filename="@photo.FileName">
-            @if (photo.HasThumbnail)
+        var item = Model.Items[i];
+        <figure class="tile @(item.Mine ? "mine" : "") @(item.IsVideo ? "video" : "") @(item.IsAnimated ? "animated" : "")" style="--i: @Math.Min(i, 12)"
+                data-id="@item.Id" data-uploader="@item.UploaderName"
+                data-original="/api/media/@item.Id/original" data-filename="@item.FileName">
+            @if (item.HasThumbnail)
             {
-                <img src="/api/photos/@photo.Id/thumb" loading="lazy" alt="@photo.FileName" />
+                <img src="/api/media/@item.Id/thumb" loading="lazy" alt="@item.FileName" />
             }
             else
             {
-                <div class="no-thumb" title="Preview not available for this file"><span>@photo.FileName</span></div>
+                <div class="no-thumb" title="Preview not available for this file"><span>@item.FileName</span></div>
             }
-            @if (photo.IsVideo)
+            @if (item.IsVideo)
             {
                 @* Videos aren't played here: the tile shows a still frame, the file downloads. *@
                 <span class="media-badge">▶ Video</span>
             }
-            else if (photo.IsAnimated)
+            else if (item.IsAnimated)
             {
                 @* The grid holds still; hovering a tile or opening it plays the animation. *@
-                <span class="media-badge">@(photo.FileName.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ? "GIF" : "Animated")</span>
+                <span class="media-badge">@(item.FileName.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ? "GIF" : "Animated")</span>
             }
             <figcaption>
-                <span class="uploader">@photo.UploaderName</span>
+                <span class="uploader">@item.UploaderName</span>
                 <span class="tile-actions">
-                    <button type="button" class="like-btn @(photo.LikedByMe ? "liked" : "")"
-                            aria-pressed="@(photo.LikedByMe ? "true" : "false")"
-                            title="@(photo.LikedByMe ? "Unlike" : "Like") this photo">
-                        <span class="heart" aria-hidden="true">@(photo.LikedByMe ? "❤" : "♡")</span>
-                        <span class="like-count">@photo.LikeCount</span>
+                    <button type="button" class="like-btn @(item.LikedByMe ? "liked" : "")"
+                            aria-pressed="@(item.LikedByMe ? "true" : "false")"
+                            title="@(item.LikedByMe ? "Unlike" : "Like") this photo">
+                        <span class="heart" aria-hidden="true">@(item.LikedByMe ? "❤" : "♡")</span>
+                        <span class="like-count">@item.LikeCount</span>
                     </button>
-                    @if (photo.Mine)
+                    @if (item.Mine)
                     {
                         <span class="badge-you">you</span>
                     }
-                    @if (photo.Mine || Model.IsAdmin)
+                    @if (item.Mine || Model.IsAdmin)
                     {
                         <button type="button" class="delete-btn" title="Delete photo">&times;</button>
                     }

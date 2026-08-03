@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Shoebox.Web.Pages.Pool;
 
-public record PhotoTile(
+public record MediaTile(
     Guid Id, string UploaderName, string FileName, bool Mine, bool HasThumbnail,
     int LikeCount, bool LikedByMe, bool IsVideo, bool IsAnimated);
 public record UploaderSummary(string Name, int Count);
@@ -19,7 +19,7 @@ public class GalleryModel(
     ShareLinkService links) : PageModel
 {
     public Data.Pool Pool { get; set; } = null!;
-    public List<PhotoTile> Photos { get; set; } = [];
+    public List<MediaTile> Items { get; set; } = [];
     public List<UploaderSummary> Uploaders { get; set; } = [];
     public string UploaderName { get; set; } = "";
     public string ShareUrl { get; set; } = "";
@@ -28,7 +28,7 @@ public class GalleryModel(
     public string ExpiryLabel { get; set; } = "";
     public string ExpiryUrgency { get; set; } = "";
 
-    // Whether the box holds any photos the current visitor did not upload, so the
+    // Whether the box holds anything the current visitor did not upload, so the
     // "everyone else's" download only offers itself when it would actually return files.
     public bool HasOthers { get; set; }
 
@@ -46,31 +46,32 @@ public class GalleryModel(
         }
 
         var uid = identity.GetOrCreateUid(HttpContext);
-        var photos = await db.Photos
-            .Where(p => p.PoolId == pool.Id)
-            .OrderBy(p => p.TakenAt ?? p.UploadedAt)
+        var items = await db.Media
+            .Where(m => m.PoolId == pool.Id)
+            .OrderBy(m => m.TakenAt ?? m.UploadedAt)
             .ToListAsync();
 
-        var photoIds = photos.Select(p => p.Id).ToList();
+        var itemIds = items.Select(m => m.Id).ToList();
         var likeCounts = await db.Likes
-            .Where(l => photoIds.Contains(l.PhotoId))
-            .GroupBy(l => l.PhotoId)
-            .Select(g => new { PhotoId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.PhotoId, x => x.Count);
+            .Where(l => itemIds.Contains(l.MediaId))
+            .GroupBy(l => l.MediaId)
+            .Select(g => new { MediaId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.MediaId, x => x.Count);
         var myLikes = (await db.Likes
-            .Where(l => l.UploaderUid == uid && photoIds.Contains(l.PhotoId))
-            .Select(l => l.PhotoId)
+            .Where(l => l.UploaderUid == uid && itemIds.Contains(l.MediaId))
+            .Select(l => l.MediaId)
             .ToListAsync()).ToHashSet();
 
         Pool = pool;
-        Photos = photos
-            .Select(p => new PhotoTile(
-                p.Id, p.UploaderName, p.OriginalFileName, p.UploaderUid == uid, p.HasThumbnail,
-                likeCounts.GetValueOrDefault(p.Id), myLikes.Contains(p.Id), p.IsVideo, p.HasAnimation))
+        Items = items
+            .Select(m => new MediaTile(
+                m.Id, m.UploaderName, m.OriginalFileName, m.UploaderUid == uid, m.HasThumbnail,
+                likeCounts.GetValueOrDefault(m.Id), myLikes.Contains(m.Id),
+                m.Kind == MediaKind.Video, m.HasAnimation))
             .ToList();
-        HasOthers = Photos.Any(p => !p.Mine);
-        Uploaders = photos
-            .GroupBy(p => p.UploaderName)
+        HasOthers = Items.Any(m => !m.Mine);
+        Uploaders = items
+            .GroupBy(m => m.UploaderName)
             .Select(g => new UploaderSummary(g.Key, g.Count()))
             .OrderBy(u => u.Name)
             .ToList();
