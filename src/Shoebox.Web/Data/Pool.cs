@@ -11,7 +11,7 @@ public class Pool
     public DateTime CreatedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
 
-    public List<Photo> Photos { get; set; } = [];
+    public List<Media> Media { get; set; } = [];
 
     public bool HasPassword => PasswordHash is not null;
 }

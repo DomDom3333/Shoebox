@@ -95,7 +95,7 @@
       form.append("files", file, file.name);
 
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `/api/p/${poolCode}/photos`);
+      xhr.open("POST", `/api/p/${poolCode}/media`);
       xhr.upload.addEventListener("progress", (e) => {
         if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       });
@@ -203,6 +203,22 @@
     }
   }
 
+  // ---------- Animations (GIF / animated WebP) ----------
+
+  // The grid holds still so a box full of GIFs doesn't flicker at everyone. On a device
+  // with a real pointer, hovering a tile swaps its still for the animated display proxy;
+  // on touch there's no hover, and tapping opens the lightbox, which always plays.
+  if (!window.matchMedia || window.matchMedia("(hover: hover)").matches) {
+    for (const tile of gallery.querySelectorAll(".tile.animated")) {
+      const img = tile.querySelector("img");
+      if (!img) continue;
+      const still = img.src;
+      const moving = tile.dataset.original.replace(/\/original$/, "/display");
+      tile.addEventListener("mouseenter", () => (img.src = moving));
+      tile.addEventListener("mouseleave", () => (img.src = still));
+    }
+  }
+
   // ---------- Like ----------
 
   gallery.addEventListener("click", async (e) => {
@@ -214,7 +230,7 @@
     const tile = btn.closest(".tile");
     btn.disabled = true;
     try {
-      const res = await fetch(`/api/photos/${tile.dataset.id}/like`, { method: "POST" });
+      const res = await fetch(`/api/media/${tile.dataset.id}/like`, { method: "POST" });
       if (!res.ok) throw new Error("like failed");
       const data = await res.json();
       setLiked(btn, data.liked, data.count);
@@ -248,7 +264,7 @@
     const tile = btn.closest(".tile");
     if (!confirm("Delete this photo?")) return;
 
-    const res = await fetch(`/api/photos/${tile.dataset.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/media/${tile.dataset.id}`, { method: "DELETE" });
     if (res.ok) {
       tile.remove();
     } else {
@@ -277,8 +293,13 @@
     // than a 50MB phone original, and viewable in every browser (including HEIC). The
     // Download button always fetches the true original.
     const base = tile.dataset.original.replace(/\/original$/, "");
+    const isVideo = tile.classList.contains("video");
     lbImg.src = base + "/display";
-    lbCaption.textContent = `${tile.dataset.uploader} · ${tile.dataset.filename}`;
+    // Videos aren't played in the browser: the lightbox shows the poster frame and the
+    // Download button hands over the clip itself.
+    lbCaption.textContent =
+      `${tile.dataset.uploader} · ${tile.dataset.filename}` + (isVideo ? " · video, download to play" : "");
+    lbDownload.textContent = isVideo ? "Download video" : "Download";
     lbDownload.href = tile.dataset.original + "?download=true";
     lightbox.hidden = false;
     document.body.style.overflow = "hidden";

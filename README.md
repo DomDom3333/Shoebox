@@ -52,6 +52,8 @@ For everyone else:
 - **Optional passwords**: a guest enters the password once per device; a signed cookie unlocks the box after that. Photo files live outside the web root and every image and download re-checks the cookie server-side, so a leaked image URL is useless without it.
 - **Fast gallery**: a WebP thumbnail grid plus a full-screen lightbox backed by a downscaled web-safe proxy, so viewing is sharp without sending a full-size original over the wire. Filter by uploader; photos sort by capture time (EXIF).
 - **HEIC / HEIF from phones**: decoded server-side, so iPhone photos get thumbnails and previews in every browser, not just Safari.
+- **GIFs that move**: an animated GIF (or animated WebP) plays in the lightbox and when you hover its tile. The grid itself holds still, so a box full of GIFs doesn't flicker at everyone at once.
+- **Short videos, minimally**: MP4/MOV/WebM clips can be dropped in alongside the photos. Each gets a poster frame so it has a tile in the grid, and downloads as the original file. Nothing is transcoded and there is no in-browser playback.
 - **Flexible downloads**: a single photo, the whole box as a streamed ZIP, or "download others'": everything except your own uploads.
 - **Private admin link**: the creator can rename the box, change or remove the password, adjust expiry, delete individual photos, or delete the whole box.
 - **Auto-expiry**: a box can be set to delete itself a chosen number of days after the event.
@@ -123,15 +125,19 @@ Set via environment variables (`Shoebox__Key`) or the `Shoebox` section of
 | Setting | Default | Purpose |
 |---|---|---|
 | `DataPath` | `/data` (Docker), `data` (local) | Root folder for the database, photos, and keys |
-| `MaxFileSizeMb` | `50` | Per-file upload limit |
+| `MaxFileSizeMb` | `50` | Per-file upload limit for photos |
+| `MaxVideoFileSizeMb` | `200` | Per-file upload limit for videos |
 | `MaxImagePixels` | `100000000` | Reject images above this many pixels (bomb protection) |
 | `MaxImageDimension` | `30000` | Reject images wider or taller than this many pixels |
+| `MaxAnimationPixels` | `40000000` | Total pixels (all frames) an animation may have and still be re-rendered as an animation |
 | `UnlockAttemptsPerMinute` | `10` | Password-unlock attempts allowed per client IP per box per minute |
 | `ThumbnailSize` | `480` | Longest edge of gallery thumbnails (px) |
 | `DisplaySize` | `1600` | Longest edge of the lightbox proxy (px) |
 | `DefaultExpiryDays` | `0` | Expiry pre-selected on the create form (`0` = never) |
 | `CookieLifetimeDays` | `90` | How long unlock, identity, and admin cookies last |
 | `PublicBaseUrl` | *(derived from request)* | Public URL used in share links and QR codes |
+| `FfmpegPath` | `ffmpeg` | ffmpeg executable used for video poster frames (looked up on `PATH`) |
+| `VideoPosterSeconds` | `1` | How far into a video the poster frame is taken |
 
 ### Behind a reverse proxy
 
@@ -142,11 +148,11 @@ the client IP behind rate limiting and for the `Secure` cookie flag) would then 
 Two things to set:
 
 - `Shoebox__PublicBaseUrl`: your public address, so QR codes and share links are correct.
-- Your proxy's request-body limit: at least `MaxFileSizeMb` (for example `client_max_body_size 50m;` in nginx).
+- Your proxy's request-body limit: at least the larger of `MaxFileSizeMb` and `MaxVideoFileSizeMb` (for example `client_max_body_size 200m;` in nginx).
 
 ## Supported formats
 
-Uploads are accepted and decoded server-side (Magick.NET) in these formats:
+Photos are accepted and decoded server-side (Magick.NET) in these formats:
 
 | Format | Extensions |
 |---|---|
@@ -162,6 +168,45 @@ appear in the gallery everywhere. The original file is always stored unmodified 
 Download button returns. Files of the wrong type, over `MaxFileSizeMb`, or that don't decode as
 a real image within the pixel limits are rejected at upload.
 
+### Animations
+
+An animated GIF (or animated WebP) keeps its animation: the display proxy is written as an
+animated WebP, so it plays in the lightbox and while you hover its tile. Thumbnails stay still
+— the first frame only — so a grid with a dozen GIFs in it isn't a wall of motion. Animated
+tiles carry a **GIF** badge, and on touch devices, where there's no hover, tapping through to
+the lightbox is what plays them.
+
+Every frame has to be decoded, resized and re-encoded, so animations larger than
+`MaxAnimationPixels` counted across all frames (40 MP by default — say 60 frames of 800×600)
+are still accepted, but get a still proxy instead. HEIC files are never treated as animations:
+the extra images inside one are depth maps and previews, not frames.
+
+GIFs that were uploaded before this existed still have their old still proxy; an admin can
+re-render one with `POST /api/media/{id}/reprocess`.
+
+### Videos
+
+Video support is deliberately minimal — enough that the clip from the evening ends up in the
+same box as the photos, and no more:
+
+| Format | Extensions |
+|---|---|
+| MP4 | `.mp4`, `.m4v` |
+| QuickTime | `.mov` |
+| WebM | `.webm` |
+
+A clip is stored untouched, appears in the grid as a still frame with a **Video** badge, and is
+included in ZIP downloads like anything else. There is **no in-browser playback and no
+transcoding**: opening a video shows the poster frame, and the Download button hands over the
+original file to play locally. Videos are limited by `MaxVideoFileSizeMb` rather than
+`MaxFileSizeMb`, and uploads whose bytes aren't really one of the containers above are rejected.
+
+The poster frame is taken with `ffmpeg`, which the Docker image installs. If you run Shoebox
+outside Docker without ffmpeg on `PATH`, videos still upload and download fine — they just show
+a placeholder tile instead of a frame. (Point `Shoebox__FfmpegPath` at the binary if it lives
+somewhere unusual; an admin can re-run the frame grab on a photo or video with
+`POST /api/media/{id}/reprocess`.)
+
 ## Under the hood
 
 ### Three renditions per photo
@@ -170,9 +215,12 @@ Each upload is decoded once and produces three files, so every context gets a ri
 
 | Rendition | Size | Format | Used for |
 |---|---|---|---|
-| Thumbnail | ~480px | WebP | Gallery grid |
-| Display proxy | ~1600px | WebP | Full-screen lightbox |
+| Thumbnail | ~480px | WebP | Gallery grid (always a single frame) |
+| Display proxy | ~1600px | WebP | Full-screen lightbox (animated for animated sources) |
 | Original | untouched | as uploaded | Downloads and ZIPs |
+
+A video goes through the same three slots: ffmpeg pulls one frame out of it, and that frame
+becomes the thumbnail and the display proxy. Only the original is ever video.
 
 ### Storage layout
 
@@ -181,10 +229,20 @@ Each upload is decoded once and produces three files, so every context gets a ri
 ├── shoebox.db                     # SQLite: boxes + photo metadata
 ├── keys/                             # Data Protection keys (signed cookies)
 └── pools/{boxId}/
-    ├── orig/{photoId}.{ext}          # untouched originals
-    ├── thumb/{photoId}.webp          # grid thumbnails
-    └── display/{photoId}.webp        # lightbox proxies
+    ├── orig/{mediaId}.{ext}          # untouched originals (photos and videos alike)
+    ├── thumb/{mediaId}.webp          # grid thumbnails
+    └── display/{mediaId}.webp        # lightbox proxies
 ```
+
+### Schema changes
+
+The database is versioned with EF Core migrations, applied automatically at startup — one
+directory, one file per change, no manual step when you upgrade the container.
+
+Boxes created before migrations existed were built by `EnsureCreated` and have no migrations
+history, so re-running the first migration against them would fail on tables that are already
+there. Startup spots that case and records the baseline as applied instead, then migrates
+normally from there. Nothing to do by hand, and nothing to delete.
 
 ### Security model
 
@@ -194,7 +252,7 @@ Shoebox is intentionally lightweight, but the basics are done properly:
 - **Access is enforced on every byte.** Originals live outside `wwwroot`; the thumbnail, display, original, ZIP, and QR endpoints all re-check the signed access cookie, so requesting a URL without it returns 404 rather than the file.
 - **Cookies** (access, admin, identity) are HttpOnly and SameSite=Lax; access and admin state is carried in tamper-proof, Data-Protection-signed cookies.
 - **The admin link** carries a one-time capability key that is exchanged for a signed admin cookie and stripped from the URL on first use; POST handlers only accept the cookie, never the key.
-- **Uploads** are limited by size and by pixel dimensions (decompression-bomb protection), restricted to a raster-image allowlist (no SVG or active content), and rejected if they don't decode. Stored filenames are random GUIDs, so there is no path traversal or overwrite.
+- **Uploads** are limited by size and by pixel dimensions (decompression-bomb protection), restricted to a raster-image and video allowlist (no SVG or active content), and rejected if they don't decode (photos) or don't start with a real container header (videos). Stored filenames are random GUIDs, so there is no path traversal or overwrite.
 - **Responses** set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, and a lean `Referrer-Policy`.
 
 The **uploader identity** cookie (which powers the "you" badge, delete-your-own, and "download
@@ -210,9 +268,9 @@ tool for confidential material.
 | `GET /p/{code}` | Gallery (redirects to unlock if locked) |
 | `POST /p/{code}/unlock` | Verify password, set access cookie (rate-limited) |
 | `GET /p/{code}/admin` | Admin panel (via key or admin cookie) |
-| `POST /api/p/{code}/photos` | Multi-file upload |
-| `GET /api/photos/{id}/thumb` · `/display` · `/original` | Serve a rendition (access-checked) |
-| `DELETE /api/photos/{id}` | Delete a photo (own, or as admin) |
+| `POST /api/p/{code}/media` | Multi-file upload |
+| `GET /api/media/{id}/thumb` · `/display` · `/original` | Serve a rendition (access-checked) |
+| `DELETE /api/media/{id}` | Delete an item (own, or as admin) |
 | `GET /api/p/{code}/zip?mode=all\|others` | Streamed ZIP download |
 | `GET /api/p/{code}/qr` | QR code PNG for the box link |
 
@@ -222,9 +280,10 @@ tool for confidential material.
 src/Shoebox.Web/
 ├── Program.cs              # DI, middleware, EF init, upload limits, rate limiting
 ├── ShoeboxOptions.cs    # configuration
-├── Data/                   # EF Core context + Pool / Photo entities
-├── Services/               # boxes, photos, rendering, ZIP, access, cleanup…
-├── Api/PhotoEndpoints.cs   # minimal-API upload/serve/zip/qr endpoints
+├── Data/                   # EF Core context + Pool / Media entities, schema upgrade
+├── Migrations/             # EF Core migrations (the only way the schema changes)
+├── Services/               # boxes, media, per-kind handlers, rendering, ZIP, access…
+├── Api/MediaEndpoints.cs   # minimal-API upload/serve/zip/qr endpoints
 ├── Pages/                  # Razor Pages (home, create, gallery, unlock, admin)
 └── wwwroot/                # css/js/fonts (no build step, no framework)
 .github/workflows/docker.yml  # CI: build and publish the container image

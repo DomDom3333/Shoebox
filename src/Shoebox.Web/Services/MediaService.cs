@@ -1,53 +1,40 @@
 using System.Security.Cryptography;
 using Shoebox.Web.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace Shoebox.Web.Services;
 
-public record UploadResult(string FileName, string Status, Guid? PhotoId = null, string? Reason = null)
+public record UploadResult(string FileName, string Status, Guid? MediaId = null, string? Reason = null)
 {
     public static UploadResult Added(string fileName, Guid id) => new(fileName, "added", id);
     public static UploadResult Duplicate(string fileName) => new(fileName, "duplicate", Reason: "Already in this pool");
     public static UploadResult Rejected(string fileName, string reason) => new(fileName, "rejected", Reason: reason);
 }
 
-public class PhotoService(
-    AppDbContext db,
-    StoragePaths paths,
-    ImageRenderer renderer,
-    IOptions<ShoeboxOptions> options)
+public class MediaService(AppDbContext db, StoragePaths paths, MediaHandlers handlers)
 {
-    private static readonly Dictionary<string, string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [".jpg"] = "image/jpeg",
-        [".jpeg"] = "image/jpeg",
-        [".png"] = "image/png",
-        [".gif"] = "image/gif",
-        [".webp"] = "image/webp",
-        [".heic"] = "image/heic",
-        [".heif"] = "image/heif",
-    };
-
     public async Task<UploadResult> SaveAsync(Pool pool, IFormFile file, string uploaderName, Guid uploaderUid,
         CancellationToken ct = default)
     {
         var fileName = Path.GetFileName(file.FileName);
         var extension = Path.GetExtension(fileName);
 
-        if (!AllowedExtensions.TryGetValue(extension, out var contentType))
+        var match = handlers.For(extension);
+        if (match is null)
         {
             return UploadResult.Rejected(fileName, "Unsupported file type");
         }
+
+        var (handler, contentType) = match.Value;
 
         if (file.Length == 0)
         {
             return UploadResult.Rejected(fileName, "Empty file");
         }
 
-        if (file.Length > options.Value.MaxFileSizeBytes)
+        if (file.Length > handler.MaxBytes)
         {
-            return UploadResult.Rejected(fileName, $"Larger than {options.Value.MaxFileSizeMb} MB");
+            return UploadResult.Rejected(fileName, $"Larger than {handler.MaxBytes / (1024 * 1024)} MB");
         }
 
         Directory.CreateDirectory(paths.OriginalsDirectory(pool.Id));
@@ -74,7 +61,7 @@ public class PhotoService(
 
             hash = Convert.ToHexString(hasher.GetHashAndReset());
 
-            if (await db.Photos.AnyAsync(p => p.PoolId == pool.Id && p.ContentHash == hash, ct))
+            if (await db.Media.AnyAsync(m => m.PoolId == pool.Id && m.ContentHash == hash, ct))
             {
                 File.Delete(tempPath);
                 return UploadResult.Duplicate(fileName);
@@ -90,10 +77,11 @@ public class PhotoService(
             throw;
         }
 
-        var photo = new Photo
+        var media = new Media
         {
             Id = Guid.NewGuid(),
             PoolId = pool.Id,
+            Kind = handler.Kind,
             OriginalFileName = fileName,
             Extension = extension.ToLowerInvariant(),
             ContentType = contentType,
@@ -104,58 +92,72 @@ public class PhotoService(
             UploadedAt = DateTime.UtcNow,
         };
 
-        var originalPath = paths.OriginalFile(pool.Id, photo.Id, photo.Extension);
+        var originalPath = paths.OriginalFile(pool.Id, media.Id, media.Extension);
+        var thumbPath = paths.ThumbFile(pool.Id, media.Id);
+        var displayPath = paths.DisplayFile(pool.Id, media.Id);
         File.Move(tempPath, originalPath);
 
-        var info = await renderer.ProcessAsync(
-            originalPath, paths.ThumbFile(pool.Id, photo.Id), paths.DisplayFile(pool.Id, photo.Id), ct);
-        if (info is null)
+        if (handler.Reject(originalPath) is { } reason)
         {
-            // Not a readable image within limits: corrupt, mislabelled, or an
-            // oversized decode bomb. Don't store or serve it.
+            // The extension claims something the bytes aren't; don't store it.
             DeleteIfExists(originalPath);
-            DeleteIfExists(paths.ThumbFile(pool.Id, photo.Id));
-            DeleteIfExists(paths.DisplayFile(pool.Id, photo.Id));
-            return UploadResult.Rejected(fileName, "Couldn't read this image (it may be corrupt or too large)");
+            return UploadResult.Rejected(fileName, reason);
         }
 
-        photo.Width = info.Width;
-        photo.Height = info.Height;
-        photo.TakenAt = info.TakenAt;
-        photo.HasThumbnail = true;
+        var info = await handler.RenderAsync(originalPath, thumbPath, displayPath, ct);
+        if (info is null)
+        {
+            DeleteIfExists(thumbPath);
+            DeleteIfExists(displayPath);
 
-        db.Photos.Add(photo);
+            if (handler.RenderFailureReason is { } failure)
+            {
+                DeleteIfExists(originalPath);
+                return UploadResult.Rejected(fileName, failure);
+            }
+        }
+        else
+        {
+            media.Width = info.Width;
+            media.Height = info.Height;
+            media.TakenAt = info.TakenAt;
+            media.HasThumbnail = true;
+            media.HasAnimation = info.IsAnimated;
+        }
+
+        db.Media.Add(media);
         await db.SaveChangesAsync(ct);
-        return UploadResult.Added(fileName, photo.Id);
+        return UploadResult.Added(fileName, media.Id);
     }
 
-    public async Task<bool> ReprocessAsync(Photo photo, CancellationToken ct = default)
+    public async Task<bool> ReprocessAsync(Media media, CancellationToken ct = default)
     {
-        var originalPath = paths.OriginalFile(photo.PoolId, photo.Id, photo.Extension);
+        var originalPath = paths.OriginalFile(media.PoolId, media.Id, media.Extension);
         if (!File.Exists(originalPath))
             return false;
 
-        var info = await renderer.ProcessAsync(
-            originalPath, paths.ThumbFile(photo.PoolId, photo.Id), paths.DisplayFile(photo.PoolId, photo.Id), ct);
+        var info = await handlers.For(media.Kind).RenderAsync(
+            originalPath, paths.ThumbFile(media.PoolId, media.Id), paths.DisplayFile(media.PoolId, media.Id), ct);
         if (info is null)
             return false;
 
-        photo.HasThumbnail = true;
-        photo.Width = info.Width;
-        photo.Height = info.Height;
-        photo.TakenAt ??= info.TakenAt;
+        media.HasThumbnail = true;
+        media.HasAnimation = info.IsAnimated;
+        media.Width = info.Width;
+        media.Height = info.Height;
+        media.TakenAt ??= info.TakenAt;
         await db.SaveChangesAsync(ct);
         return true;
     }
 
-    public async Task DeleteAsync(Photo photo)
+    public async Task DeleteAsync(Media media)
     {
-        db.Photos.Remove(photo);
+        db.Media.Remove(media);
         await db.SaveChangesAsync();
 
-        DeleteIfExists(paths.OriginalFile(photo.PoolId, photo.Id, photo.Extension));
-        DeleteIfExists(paths.ThumbFile(photo.PoolId, photo.Id));
-        DeleteIfExists(paths.DisplayFile(photo.PoolId, photo.Id));
+        DeleteIfExists(paths.OriginalFile(media.PoolId, media.Id, media.Extension));
+        DeleteIfExists(paths.ThumbFile(media.PoolId, media.Id));
+        DeleteIfExists(paths.DisplayFile(media.PoolId, media.Id));
     }
 
     private static void DeleteIfExists(string path)

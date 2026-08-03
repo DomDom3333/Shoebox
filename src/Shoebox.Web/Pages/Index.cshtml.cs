@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Shoebox.Web.Pages;
 
-public record BoxSummary(string Code, string Name, bool IsAdmin, int PhotoCount, DateTime? ExpiresAt);
+public record BoxSummary(string Code, string Name, bool IsAdmin, int ItemCount, DateTime? ExpiresAt);
 
 public class IndexModel(AppDbContext db, PoolService pools, PoolAccessService access) : PageModel
 {
@@ -44,11 +44,11 @@ public class IndexModel(AppDbContext db, PoolService pools, PoolAccessService ac
         var boxes = await db.Pools
             .Where(p => ids.Contains(p.Id))
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => new { p.Id, p.Code, p.Name, p.ExpiresAt, PhotoCount = p.Photos.Count })
+            .Select(p => new { p.Id, p.Code, p.Name, p.ExpiresAt, ItemCount = p.Media.Count })
             .ToListAsync();
 
         MyBoxes = boxes
-            .Select(b => new BoxSummary(b.Code, b.Name, access.IsAdmin(HttpContext, b.Id), b.PhotoCount, b.ExpiresAt))
+            .Select(b => new BoxSummary(b.Code, b.Name, access.IsAdmin(HttpContext, b.Id), b.ItemCount, b.ExpiresAt))
             .ToList();
     }
 }
