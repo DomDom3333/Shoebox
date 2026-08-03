@@ -162,6 +162,7 @@ public class PhotoService(
             photo.Height = info.Height;
             photo.TakenAt = info.TakenAt;
             photo.HasThumbnail = true;
+            photo.HasAnimation = info.IsAnimated;
         }
 
         db.Photos.Add(photo);
@@ -184,6 +185,7 @@ public class PhotoService(
             return false;
 
         photo.HasThumbnail = true;
+        photo.HasAnimation = info.IsAnimated;
         photo.Width = info.Width;
         photo.Height = info.Height;
         photo.TakenAt ??= info.TakenAt;

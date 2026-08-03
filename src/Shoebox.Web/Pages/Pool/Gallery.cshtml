@@ -112,7 +112,7 @@
     @for (var i = 0; i < Model.Photos.Count; i++)
     {
         var photo = Model.Photos[i];
-        <figure class="tile @(photo.Mine ? "mine" : "") @(photo.IsVideo ? "video" : "")" style="--i: @Math.Min(i, 12)"
+        <figure class="tile @(photo.Mine ? "mine" : "") @(photo.IsVideo ? "video" : "") @(photo.IsAnimated ? "animated" : "")" style="--i: @Math.Min(i, 12)"
                 data-id="@photo.Id" data-uploader="@photo.UploaderName"
                 data-original="/api/photos/@photo.Id/original" data-filename="@photo.FileName">
             @if (photo.HasThumbnail)
@@ -126,7 +126,12 @@
             @if (photo.IsVideo)
             {
                 @* Videos aren't played here: the tile shows a still frame, the file downloads. *@
-                <span class="video-badge">▶ Video</span>
+                <span class="media-badge">▶ Video</span>
+            }
+            else if (photo.IsAnimated)
+            {
+                @* The grid holds still; hovering a tile or opening it plays the animation. *@
+                <span class="media-badge">@(photo.FileName.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ? "GIF" : "Animated")</span>
             }
             <figcaption>
                 <span class="uploader">@photo.UploaderName</span>

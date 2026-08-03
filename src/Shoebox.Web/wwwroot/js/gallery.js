@@ -203,6 +203,22 @@
     }
   }
 
+  // ---------- Animations (GIF / animated WebP) ----------
+
+  // The grid holds still so a box full of GIFs doesn't flicker at everyone. On a device
+  // with a real pointer, hovering a tile swaps its still for the animated display proxy;
+  // on touch there's no hover, and tapping opens the lightbox, which always plays.
+  if (!window.matchMedia || window.matchMedia("(hover: hover)").matches) {
+    for (const tile of gallery.querySelectorAll(".tile.animated")) {
+      const img = tile.querySelector("img");
+      if (!img) continue;
+      const still = img.src;
+      const moving = tile.dataset.original.replace(/\/original$/, "/display");
+      tile.addEventListener("mouseenter", () => (img.src = moving));
+      tile.addEventListener("mouseleave", () => (img.src = still));
+    }
+  }
+
   // ---------- Like ----------
 
   gallery.addEventListener("click", async (e) => {

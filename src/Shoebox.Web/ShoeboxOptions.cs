@@ -24,6 +24,14 @@ public class ShoeboxOptions
     /// <summary>Reject images whose width or height exceeds this many pixels.</summary>
     public int MaxImageDimension { get; set; } = 30_000;
 
+    /// <summary>
+    /// Budget for keeping an animation moving, counted across every frame (width × height ×
+    /// frames). Every frame has to be decoded, resized and re-encoded, so this bounds how long
+    /// one upload can spend rendering. Animations over the budget are still accepted; they just
+    /// get a single-frame proxy like any other photo.
+    /// </summary>
+    public long MaxAnimationPixels { get; set; } = 40_000_000;
+
     /// <summary>Password-unlock attempts allowed per client IP per pool per minute.</summary>
     public int UnlockAttemptsPerMinute { get; set; } = 10;
 

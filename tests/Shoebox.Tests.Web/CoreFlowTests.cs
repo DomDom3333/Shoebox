@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using ImageMagick;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -20,6 +21,65 @@ public class CoreFlowTests
         (byte)'i', (byte)'s', (byte)'o', (byte)'m', 0x00, 0x00, 0x02, 0x00,
         (byte)'i', (byte)'s', (byte)'o', (byte)'m', (byte)'m', (byte)'p', (byte)'4', (byte)'2',
     ];
+
+    [Fact]
+    public async Task Animated_gif_gets_a_moving_proxy_and_a_still_thumbnail()
+    {
+        using var factory = new ShoeboxWebApplicationFactory();
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var added = await UploadAsync(owner, code, "Alice", "party.gif", MakeGif(frameCount: 3));
+        Assert.Equal("added", added.Status);
+        var photoId = Assert.IsType<Guid>(added.PhotoId);
+
+        // The lightbox plays this one, so the proxy has to keep every frame.
+        var display = await owner.GetAsync($"/api/photos/{photoId}/display");
+        Assert.Equal(HttpStatusCode.OK, display.StatusCode);
+        Assert.Equal("image/webp", display.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(3, FrameCount(await display.Content.ReadAsByteArrayAsync()));
+
+        // The grid holds still: a box full of GIFs shouldn't flicker at everyone at once.
+        var thumb = await owner.GetAsync($"/api/photos/{photoId}/thumb");
+        Assert.Equal(HttpStatusCode.OK, thumb.StatusCode);
+        Assert.Equal(1, FrameCount(await thumb.Content.ReadAsByteArrayAsync()));
+
+        var gallery = await owner.GetAsync($"/p/{code}");
+        Assert.Contains("media-badge\">GIF", await gallery.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Still_gif_is_not_treated_as_an_animation()
+    {
+        using var factory = new ShoeboxWebApplicationFactory();
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var added = await UploadAsync(owner, code, "Alice", "still.gif", MakeGif(frameCount: 1));
+        var photoId = Assert.IsType<Guid>(added.PhotoId);
+
+        var display = await owner.GetAsync($"/api/photos/{photoId}/display");
+        Assert.Equal(1, FrameCount(await display.Content.ReadAsByteArrayAsync()));
+
+        var gallery = await owner.GetAsync($"/p/{code}");
+        Assert.DoesNotContain("media-badge", await gallery.Content.ReadAsStringAsync());
+    }
+
+    private static byte[] MakeGif(int frameCount)
+    {
+        using var frames = new MagickImageCollection();
+        for (var i = 0; i < frameCount; i++)
+        {
+            frames.Add(new MagickImage(i % 2 == 0 ? MagickColors.Red : MagickColors.Blue, 16, 16)
+            {
+                AnimationDelay = 20,
+            });
+        }
+
+        return frames.ToByteArray(MagickFormat.Gif);
+    }
+
+    private static int FrameCount(byte[] image) => MagickImageInfo.ReadCollection(image).Count();
 
     [Fact]
     public async Task Video_upload_is_stored_downloadable_and_marked_in_the_gallery()
@@ -43,7 +103,7 @@ public class CoreFlowTests
 
         var gallery = await owner.GetAsync($"/p/{code}");
         gallery.EnsureSuccessStatusCode();
-        Assert.Contains("video-badge", await gallery.Content.ReadAsStringAsync());
+        Assert.Contains("media-badge\">▶ Video", await gallery.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/photos/{photoId}")).StatusCode);
         Assert.Empty(Directory.EnumerateFiles(

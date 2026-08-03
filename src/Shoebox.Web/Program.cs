@@ -107,6 +107,16 @@ using (var scope = app.Services.CreateScope())
                 REFERENCES "Photos" ("Id") ON DELETE CASCADE
         );
         """);
+
+    // Same story for columns added later. SQLite has no "ADD COLUMN IF NOT EXISTS", so ask.
+    var photoColumns = await appDb.Database
+        .SqlQueryRaw<string>("SELECT name AS Value FROM pragma_table_info('Photos')")
+        .ToListAsync();
+    if (!photoColumns.Contains("HasAnimation"))
+    {
+        await appDb.Database.ExecuteSqlRawAsync(
+            """ALTER TABLE "Photos" ADD COLUMN "HasAnimation" INTEGER NOT NULL DEFAULT 0;""");
+    }
 }
 
 app.UseForwardedHeaders();

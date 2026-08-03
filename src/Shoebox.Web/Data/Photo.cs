@@ -15,6 +15,12 @@ public class Photo
     public string ContentHash { get; set; } = "";
     public bool HasThumbnail { get; set; }
 
+    /// <summary>
+    /// The display proxy is an animated WebP (an animated GIF or WebP was uploaded), so the
+    /// lightbox plays it and the still thumbnail is only the first frame.
+    /// </summary>
+    public bool HasAnimation { get; set; }
+
     public string UploaderName { get; set; } = "";
     public Guid UploaderUid { get; set; }
 

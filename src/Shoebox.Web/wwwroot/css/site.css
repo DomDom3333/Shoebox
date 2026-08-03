@@ -596,8 +596,8 @@ input[type="checkbox"] { accent-color: var(--ink); }
 }
 .tile .no-thumb span { font-size: 0.75rem; word-break: break-all; }
 
-/* a clip's tile is a still frame, so it says so: a small chip on the print's corner */
-.tile .video-badge {
+/* a clip or an animation shows as a still frame, so it says so: a chip on the print's corner */
+.tile .media-badge {
   position: absolute;
   top: 0.9rem;
   left: 0.9rem;

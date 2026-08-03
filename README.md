@@ -52,6 +52,7 @@ For everyone else:
 - **Optional passwords**: a guest enters the password once per device; a signed cookie unlocks the box after that. Photo files live outside the web root and every image and download re-checks the cookie server-side, so a leaked image URL is useless without it.
 - **Fast gallery**: a WebP thumbnail grid plus a full-screen lightbox backed by a downscaled web-safe proxy, so viewing is sharp without sending a full-size original over the wire. Filter by uploader; photos sort by capture time (EXIF).
 - **HEIC / HEIF from phones**: decoded server-side, so iPhone photos get thumbnails and previews in every browser, not just Safari.
+- **GIFs that move**: an animated GIF (or animated WebP) plays in the lightbox and when you hover its tile. The grid itself holds still, so a box full of GIFs doesn't flicker at everyone at once.
 - **Short videos, minimally**: MP4/MOV/WebM clips can be dropped in alongside the photos. Each gets a poster frame so it has a tile in the grid, and downloads as the original file. Nothing is transcoded and there is no in-browser playback.
 - **Flexible downloads**: a single photo, the whole box as a streamed ZIP, or "download others'": everything except your own uploads.
 - **Private admin link**: the creator can rename the box, change or remove the password, adjust expiry, delete individual photos, or delete the whole box.
@@ -128,6 +129,7 @@ Set via environment variables (`Shoebox__Key`) or the `Shoebox` section of
 | `MaxVideoFileSizeMb` | `200` | Per-file upload limit for videos |
 | `MaxImagePixels` | `100000000` | Reject images above this many pixels (bomb protection) |
 | `MaxImageDimension` | `30000` | Reject images wider or taller than this many pixels |
+| `MaxAnimationPixels` | `40000000` | Total pixels (all frames) an animation may have and still be re-rendered as an animation |
 | `UnlockAttemptsPerMinute` | `10` | Password-unlock attempts allowed per client IP per box per minute |
 | `ThumbnailSize` | `480` | Longest edge of gallery thumbnails (px) |
 | `DisplaySize` | `1600` | Longest edge of the lightbox proxy (px) |
@@ -166,6 +168,22 @@ appear in the gallery everywhere. The original file is always stored unmodified 
 Download button returns. Files of the wrong type, over `MaxFileSizeMb`, or that don't decode as
 a real image within the pixel limits are rejected at upload.
 
+### Animations
+
+An animated GIF (or animated WebP) keeps its animation: the display proxy is written as an
+animated WebP, so it plays in the lightbox and while you hover its tile. Thumbnails stay still
+— the first frame only — so a grid with a dozen GIFs in it isn't a wall of motion. Animated
+tiles carry a **GIF** badge, and on touch devices, where there's no hover, tapping through to
+the lightbox is what plays them.
+
+Every frame has to be decoded, resized and re-encoded, so animations larger than
+`MaxAnimationPixels` counted across all frames (40 MP by default — say 60 frames of 800×600)
+are still accepted, but get a still proxy instead. HEIC files are never treated as animations:
+the extra images inside one are depth maps and previews, not frames.
+
+GIFs that were uploaded before this existed still have their old still proxy; an admin can
+re-render one with `POST /api/photos/{id}/reprocess`.
+
 ### Videos
 
 Video support is deliberately minimal — enough that the clip from the evening ends up in the
@@ -197,8 +215,8 @@ Each upload is decoded once and produces three files, so every context gets a ri
 
 | Rendition | Size | Format | Used for |
 |---|---|---|---|
-| Thumbnail | ~480px | WebP | Gallery grid |
-| Display proxy | ~1600px | WebP | Full-screen lightbox |
+| Thumbnail | ~480px | WebP | Gallery grid (always a single frame) |
+| Display proxy | ~1600px | WebP | Full-screen lightbox (animated for animated sources) |
 | Original | untouched | as uploaded | Downloads and ZIPs |
 
 A video goes through the same three slots: ffmpeg pulls one frame out of it, and that frame
