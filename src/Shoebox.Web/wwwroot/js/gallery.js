@@ -9,6 +9,15 @@
   const dropzone = document.getElementById("dropzone");
   const progressList = document.getElementById("upload-progress");
   const filterSelect = document.getElementById("uploader-filter");
+  const uploadCard = document.getElementById("upload-card");
+
+  // Per-extension byte ceilings from the server. A file over its ceiling is stopped by the
+  // request-size limit partway through the body, and the reset that follows reaches us as a
+  // bare "error" event with no response to read — so the size is checked before sending.
+  let uploadLimits = {};
+  try {
+    uploadLimits = JSON.parse(uploadCard?.dataset.uploadLimits || "{}");
+  } catch { /* no limits advertised; the server still rejects oversized files */ }
 
   // ---------- Upload ----------
 
@@ -63,6 +72,13 @@
       progressList.appendChild(item);
       const status = item.querySelector(".status");
 
+      const tooLarge = overLimit(file);
+      if (tooLarge) {
+        status.textContent = tooLarge;
+        status.className = "status fail";
+        continue;
+      }
+
       try {
         const result = await uploadOne(file, (pct) => (status.textContent = pct + "%"));
         const r = result.results && result.results[0];
@@ -87,6 +103,20 @@
     }
   }
 
+  // The refusal message for a file above its kind's ceiling, or null when it's fine to send.
+  // An extension we have no limit for is left to the server, which refuses it by type.
+  function overLimit(file) {
+    const dot = file.name.lastIndexOf(".");
+    const extension = dot === -1 ? "" : file.name.slice(dot).toLowerCase();
+    const limit = uploadLimits[extension];
+    if (!limit || file.size <= limit) return null;
+    return `too large: ${megabytes(file.size)} MB, limit is ${megabytes(limit)} MB`;
+  }
+
+  function megabytes(bytes) {
+    return Math.round(bytes / (1024 * 1024));
+  }
+
   function uploadOne(file, onProgress) {
     // XHR instead of fetch: fetch has no upload progress events.
     return new Promise((resolve, reject) => {
@@ -105,14 +135,14 @@
         } else if (xhr.status === 401) {
           reject(new Error("box is locked; refresh the page"));
         } else if (xhr.status === 413) {
-          reject(new Error("file too large"));
+          reject(new Error("file too large for this server"));
         } else {
           let msg = "upload failed";
           try { msg = JSON.parse(xhr.responseText).error || msg; } catch { /* keep default */ }
           reject(new Error(msg));
         }
       });
-      xhr.addEventListener("error", () => reject(new Error("network error")));
+      xhr.addEventListener("error", () => reject(new Error("connection lost during upload")));
       xhr.send(form);
     });
   }

@@ -16,7 +16,8 @@ public class GalleryModel(
     PoolService pools,
     PoolAccessService access,
     UploaderIdentity identity,
-    ShareLinkService links) : PageModel
+    ShareLinkService links,
+    MediaHandlers handlers) : PageModel
 {
     public Data.Pool Pool { get; set; } = null!;
     public List<MediaTile> Items { get; set; } = [];
@@ -31,6 +32,12 @@ public class GalleryModel(
     // Whether the box holds anything the current visitor did not upload, so the
     // "everyone else's" download only offers itself when it would actually return files.
     public bool HasOthers { get; set; }
+
+    /// <summary>
+    /// Extension-to-byte-ceiling map handed to the uploader script, so an over-limit file is
+    /// named and refused in the page instead of being cut off in transit.
+    /// </summary>
+    public string UploadLimitsJson { get; set; } = "{}";
 
     public async Task<IActionResult> OnGetAsync(string code)
     {
@@ -76,6 +83,7 @@ public class GalleryModel(
             .OrderBy(u => u.Name)
             .ToList();
         UploaderName = identity.GetName(HttpContext) ?? "";
+        UploadLimitsJson = System.Text.Json.JsonSerializer.Serialize(handlers.MaxBytesByExtension());
         ShareUrl = links.PoolUrl(HttpContext, pool);
         IsAdmin = access.IsAdmin(HttpContext, pool.Id);
         if (pool.ExpiresAt is { } exp)
