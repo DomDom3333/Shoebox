@@ -21,9 +21,11 @@ for a group, and it fills itself.
 > Shoebox is built for casually sharing event photos, not for sensitive data, and not for
 > durable storage.
 >
-> - **Files are stored unencrypted** on the server's filesystem. Anyone with access to the
->   host (or to its backups) can read every uploaded image. Only use a server you trust, and
->   don't upload anything you'd mind others seeing.
+> - **Encryption at rest is opt-in, and protects the volume, not the host.** Set an encryption
+>   key and the uploads, the database and the cookie-signing keys are all encrypted on disk, so
+>   a backup, a volume snapshot or a stolen disk is inert on its own. Someone with root on the
+>   *running* host can still reach the key. Leave the key unset and everything is stored in the
+>   clear, as before. See [Encryption at rest](#encryption-at-rest).
 > - **It is not durable.** A single instance on a single filesystem, with no replication,
 >   versioning, or off-site backup, and boxes can be set to delete themselves.
 > - **It is for casual sharing, not confidential material.** Access rests on unguessable links
@@ -60,6 +62,7 @@ For everyone else:
 - **Deduplication**: the same file uploaded twice is stored once (SHA-256).
 - **Designed to be nice to use**: an editorial, print-inspired interface with a light/dark toggle, photos that "develop" in like film as the gallery loads, and layouts and tap targets that work on phones as well as desktops.
 - **Simple storage**: files on disk plus a SQLite database. One directory holds everything.
+- **Optional encryption at rest**: set one key and the photos, the database and the cookie-signing keys are all encrypted on the volume, so a backup or a snapshot isn't readable on its own. The key comes from the environment and is never written to disk by the app.
 
 ## Screenshots
 
@@ -125,6 +128,8 @@ Set via environment variables (`Shoebox__Key`) or the `Shoebox` section of
 | Setting | Default | Purpose |
 |---|---|---|
 | `DataPath` | `/data` (Docker), `data` (local) | Root folder for the database, photos, and keys |
+| `EncryptionKey` | *(unset — encryption off)* | 32-byte key, base64 or hex, that encrypts everything on the data volume |
+| `EncryptionKeyFile` | *(unset)* | Path to a file holding that key instead (Docker/Kubernetes secrets). Wins if both are set |
 | `MaxFileSizeMb` | `50` | Per-file upload limit for photos |
 | `MaxVideoFileSizeMb` | `200` | Per-file upload limit for videos |
 | `MaxImagePixels` | `100000000` | Reject images above this many pixels (bomb protection) |
@@ -138,6 +143,83 @@ Set via environment variables (`Shoebox__Key`) or the `Shoebox` section of
 | `PublicBaseUrl` | *(derived from request)* | Public URL used in share links and QR codes |
 | `FfmpegPath` | `ffmpeg` | ffmpeg executable used for video poster frames (looked up on `PATH`) |
 | `VideoPosterSeconds` | `1` | How far into a video the poster frame is taken |
+
+### Encryption at rest
+
+Off by default. Give Shoebox a key and everything it writes to the data volume is encrypted:
+
+```bash
+openssl rand -base64 32          # generate a key, once
+```
+
+```yaml
+environment:
+  Shoebox__EncryptionKey: "${SHOEBOX_KEY}"   # from a .env file next to docker-compose.yml
+```
+
+Where you have secrets support, point at a file instead — the key then stays out of the
+container's environment and off `docker inspect`:
+
+```yaml
+environment:
+  Shoebox__EncryptionKeyFile: /run/secrets/shoebox_key
+secrets:
+  - shoebox_key
+```
+
+**The app never writes the key to disk.** It reads it once at startup and removes it from its
+own environment, so the ffmpeg processes it spawns don't inherit it either. The same key stays
+valid across restarts and redeploys — nothing on the volume depends on the container.
+
+**Keep the key out of the volume's backup.** If your backup sweeps up `docker-compose.yml` or
+`.env` alongside the data, you have re-created the plaintext. And keep a copy somewhere safe:
+lose the key and the boxes are unrecoverable, by design.
+
+#### What is protected
+
+| | |
+|---|---|
+| Uploads, thumbnails and lightbox proxies | AES-256-GCM, 64 KiB chunks, a per-file key derived from a per-box key |
+| The SQLite database | SQLCipher, keyed with the raw key (not a passphrase, which would cost ~440 ms per connection) |
+| The cookie-signing key ring in `keys/` | AES-256-GCM under the master key |
+
+The database matters more than it looks: it holds every box's share code and admin key. Those
+are bearer credentials, so anyone who can read `shoebox.db` can walk into any box as its admin
+through the normal web UI — and an admin can remove the box's password. It also holds uploader
+names, original filenames and EXIF capture times. Encrypting the photos and leaving the
+database readable would protect an offline copy and nothing else.
+
+Each box gets its own random data key, stored in the database wrapped under your master key.
+Rotating the master key therefore only has to re-wrap one small blob per box rather than rewrite
+every photo, and deleting a box takes its key with it, so an expired box stays unreadable even
+if its files survive in an old backup.
+
+#### What is not protected
+
+- **Root on the running host.** The key is in the process, and in your compose file or secret
+  store. This protects data at rest, not a machine someone already owns.
+- **Shape.** File sizes, file counts, per-box directories and timestamps stay visible to anyone
+  with the volume. Encrypting content doesn't hide that a box has 400 items from last June.
+- **A brief plaintext moment.** ImageMagick and ffmpeg need a real file to read, so an upload
+  passes through `/data/tmp` unencrypted while its thumbnail is rendered, then is deleted.
+  Mount that path on tmpfs to keep it off the disk entirely; leftovers from a crash are cleared
+  at startup.
+
+#### Turning it on for an existing install
+
+Set the key and restart. The database is encrypted in place on first boot (verified before the
+plaintext copy is removed), and files uploaded earlier keep serving — reads detect the format
+per file rather than trusting configuration, so old plaintext files and new encrypted ones
+coexist in the same box. New uploads are encrypted from then on.
+
+Existing files are *not* retroactively encrypted; only new uploads are. To encrypt everything,
+download the box and re-upload it.
+
+#### If the key is wrong or missing
+
+Shoebox refuses to start, naming the variable, rather than serving a gallery of broken images
+or writing new data under a second key. That is also what makes the key genuinely required
+rather than merely expected.
 
 ### Behind a reverse proxy
 
@@ -226,13 +308,18 @@ becomes the thumbnail and the display proxy. Only the original is ever video.
 
 ```
 /data
-├── shoebox.db                     # SQLite: boxes + photo metadata
+├── shoebox.db                        # SQLite: boxes + photo metadata
 ├── keys/                             # Data Protection keys (signed cookies)
+├── tmp/                              # plaintext scratch while an upload renders; emptied at startup
 └── pools/{boxId}/
     ├── orig/{mediaId}.{ext}          # untouched originals (photos and videos alike)
     ├── thumb/{mediaId}.webp          # grid thumbnails
     └── display/{mediaId}.webp        # lightbox proxies
 ```
+
+With an encryption key set, everything above except `tmp/` is encrypted on disk; the layout and
+file names are unchanged. Encrypted files start with an `SBXE` header, which is how a read
+decides whether to decrypt — so files written before encryption was switched on keep working.
 
 ### Schema changes
 
@@ -254,6 +341,7 @@ Shoebox is intentionally lightweight, but the basics are done properly:
 - **The admin link** carries a one-time capability key that is exchanged for a signed admin cookie and stripped from the URL on first use; POST handlers only accept the cookie, never the key.
 - **Uploads** are limited by size and by pixel dimensions (decompression-bomb protection), restricted to a raster-image and video allowlist (no SVG or active content), and rejected if they don't decode (photos) or don't start with a real container header (videos). Stored filenames are random GUIDs, so there is no path traversal or overwrite.
 - **Responses** set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, and a lean `Referrer-Policy`.
+- **Storage encryption**, when a key is configured, covers the uploads, the database and the cookie-signing key ring. Chunked AES-256-GCM means a tampered or truncated file fails its tag check rather than being served as plausible garbage. See [Encryption at rest](#encryption-at-rest) for what it does and doesn't protect.
 
 The **uploader identity** cookie (which powers the "you" badge, delete-your-own, and "download
 others'") is a convenience, not a security boundary. See the caveats at the top: this is not a
@@ -298,7 +386,7 @@ on pushes to the default branch (and version tags) publishes it to GitHub Contai
 
 ## Notes and limitations
 
-- **Not for sensitive images.** Files are stored unencrypted on disk. Don't upload anything private to a host you don't fully control. See the note at the top.
+- **Encryption protects the disk, not the host.** With a key set, files, database and key ring are encrypted at rest; someone with root on the running host can still read the key out of the process. File sizes, counts and timestamps stay visible on the volume regardless.
 - **Not long-term storage.** There is no redundancy or automatic backup; back up the data directory if a box matters, and don't rely on it as anyone's only copy.
 - **The links are the credentials.** Anyone with the box link (and password, if set) can view and upload; anyone with the admin link can manage. There is no email or account recovery.
 - **EXIF (including GPS) is preserved** on originals, and anyone in the box can download them. Worth mentioning to privacy-conscious guests.
@@ -306,9 +394,10 @@ on pushes to the default branch (and version tags) publishes it to GitHub Contai
 
 ## Tech stack
 
-ASP.NET Core Razor Pages (.NET 10), EF Core + SQLite, Magick.NET for all image rendering
-including HEIC/HEIF (self-contained native, no system packages required), QRCoder, and a
-vanilla JS/CSS front end, built as a multi-stage Docker image.
+ASP.NET Core Razor Pages (.NET 10), EF Core + SQLite (via SQLCipher, which is plain SQLite
+until a key is configured), Magick.NET for all image rendering including HEIC/HEIF
+(self-contained native, no system packages required), QRCoder, and a vanilla JS/CSS front end,
+built as a multi-stage Docker image.
 
 ## License
 

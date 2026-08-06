@@ -1,16 +1,18 @@
 using System.IO.Compression;
 using Shoebox.Web.Data;
+using Shoebox.Web.Services.Encryption;
 
 namespace Shoebox.Web.Services;
 
-public class ZipStreamService(StoragePaths paths)
+public class ZipStreamService(StoragePaths paths, FileVault vault)
 {
     /// <summary>
     /// Streams the given files as a ZIP directly into <paramref name="output"/>,
     /// no temp files, memory stays flat regardless of pool size. Files are stored,
-    /// not recompressed (they're already compressed formats).
+    /// not recompressed (they're already compressed formats). Encrypted originals are
+    /// decrypted on the way through, so the ZIP the guest gets is ordinary.
     /// </summary>
-    public async Task WriteAsync(IEnumerable<Media> items, Stream output, CancellationToken ct = default)
+    public async Task WriteAsync(Pool pool, IEnumerable<Media> items, Stream output, CancellationToken ct = default)
     {
         await using var zip = await ZipArchive.CreateAsync(output, ZipArchiveMode.Create, leaveOpen: true,
             entryNameEncoding: null, cancellationToken: ct);
@@ -29,7 +31,7 @@ public class ZipStreamService(StoragePaths paths)
             entry.LastWriteTime = item.SortDate;
 
             await using var entryStream = await entry.OpenAsync(ct);
-            await using var source = File.OpenRead(sourcePath);
+            await using var source = vault.OpenRead(sourcePath, pool);
             await source.CopyToAsync(entryStream, ct);
         }
     }

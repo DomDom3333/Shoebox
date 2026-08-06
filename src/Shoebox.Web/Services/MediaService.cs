@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Shoebox.Web.Data;
+using Shoebox.Web.Services.Encryption;
 using Microsoft.EntityFrameworkCore;
 
 namespace Shoebox.Web.Services;
@@ -11,7 +12,15 @@ public record UploadResult(string FileName, string Status, Guid? MediaId = null,
     public static UploadResult Rejected(string fileName, string reason) => new(fileName, "rejected", Reason: reason);
 }
 
-public class MediaService(AppDbContext db, StoragePaths paths, MediaHandlers handlers)
+/// <summary>
+/// Takes an upload through validation, rendering and storage.
+///
+/// The order matters once storage is encrypted: the file is streamed to a plaintext scratch
+/// file, checked and rendered from there, and only then sealed into its final home. That keeps
+/// ImageMagick and ffmpeg — both of which need a real file to open — completely unaware of
+/// encryption, at the cost of one file that is briefly plaintext in <see cref="StoragePaths.TempDirectory"/>.
+/// </summary>
+public class MediaService(AppDbContext db, StoragePaths paths, MediaHandlers handlers, FileVault vault, PoolKeyRing keys)
 {
     public async Task<UploadResult> SaveAsync(Pool pool, IFormFile file, string uploaderName, Guid uploaderUid,
         CancellationToken ct = default)
@@ -40,114 +49,139 @@ public class MediaService(AppDbContext db, StoragePaths paths, MediaHandlers han
         Directory.CreateDirectory(paths.OriginalsDirectory(pool.Id));
         Directory.CreateDirectory(paths.ThumbsDirectory(pool.Id));
         Directory.CreateDirectory(paths.DisplaysDirectory(pool.Id));
+        Directory.CreateDirectory(paths.TempDirectory);
 
-        // Stream to a temp file while hashing so dedupe never needs the file in memory.
-        var tempPath = Path.Combine(paths.OriginalsDirectory(pool.Id), $"upload_{Guid.NewGuid():N}.tmp");
-        string hash;
+        var tempOriginal = paths.NewTempFile(extension.ToLowerInvariant());
+        var tempThumb = paths.NewTempFile(".webp");
+        var tempDisplay = paths.NewTempFile(".webp");
+
         try
         {
-            using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            await using (var target = File.Create(tempPath))
-            await using (var source = file.OpenReadStream())
+            // Stream to the scratch file while hashing so dedupe never needs the file in memory.
+            string hash;
+            using (var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
             {
-                var buffer = new byte[81920];
-                int read;
-                while ((read = await source.ReadAsync(buffer, ct)) > 0)
+                await using (var target = File.Create(tempOriginal))
+                await using (var source = file.OpenReadStream())
                 {
-                    hasher.AppendData(buffer, 0, read);
-                    await target.WriteAsync(buffer.AsMemory(0, read), ct);
+                    var buffer = new byte[81920];
+                    int read;
+                    while ((read = await source.ReadAsync(buffer, ct)) > 0)
+                    {
+                        hasher.AppendData(buffer, 0, read);
+                        await target.WriteAsync(buffer.AsMemory(0, read), ct);
+                    }
                 }
-            }
 
-            hash = Convert.ToHexString(hasher.GetHashAndReset());
+                hash = Convert.ToHexString(hasher.GetHashAndReset());
+            }
 
             if (await db.Media.AnyAsync(m => m.PoolId == pool.Id && m.ContentHash == hash, ct))
             {
-                File.Delete(tempPath);
                 return UploadResult.Duplicate(fileName);
             }
-        }
-        catch
-        {
-            if (File.Exists(tempPath))
+
+            if (handler.Reject(tempOriginal) is { } reason)
             {
-                File.Delete(tempPath);
+                // The extension claims something the bytes aren't; don't store it.
+                return UploadResult.Rejected(fileName, reason);
             }
 
-            throw;
-        }
-
-        var media = new Media
-        {
-            Id = Guid.NewGuid(),
-            PoolId = pool.Id,
-            Kind = handler.Kind,
-            OriginalFileName = fileName,
-            Extension = extension.ToLowerInvariant(),
-            ContentType = contentType,
-            SizeBytes = file.Length,
-            ContentHash = hash,
-            UploaderName = uploaderName.Trim(),
-            UploaderUid = uploaderUid,
-            UploadedAt = DateTime.UtcNow,
-        };
-
-        var originalPath = paths.OriginalFile(pool.Id, media.Id, media.Extension);
-        var thumbPath = paths.ThumbFile(pool.Id, media.Id);
-        var displayPath = paths.DisplayFile(pool.Id, media.Id);
-        File.Move(tempPath, originalPath);
-
-        if (handler.Reject(originalPath) is { } reason)
-        {
-            // The extension claims something the bytes aren't; don't store it.
-            DeleteIfExists(originalPath);
-            return UploadResult.Rejected(fileName, reason);
-        }
-
-        var info = await handler.RenderAsync(originalPath, thumbPath, displayPath, ct);
-        if (info is null)
-        {
-            DeleteIfExists(thumbPath);
-            DeleteIfExists(displayPath);
-
-            if (handler.RenderFailureReason is { } failure)
+            var info = await handler.RenderAsync(tempOriginal, tempThumb, tempDisplay, ct);
+            if (info is null && handler.RenderFailureReason is { } failure)
             {
-                DeleteIfExists(originalPath);
                 return UploadResult.Rejected(fileName, failure);
             }
-        }
-        else
-        {
-            media.Width = info.Width;
-            media.Height = info.Height;
-            media.TakenAt = info.TakenAt;
-            media.HasThumbnail = true;
-            media.HasAnimation = info.IsAnimated;
-        }
 
-        db.Media.Add(media);
-        await db.SaveChangesAsync(ct);
-        return UploadResult.Added(fileName, media.Id);
+            var media = new Media
+            {
+                Id = Guid.NewGuid(),
+                PoolId = pool.Id,
+                Kind = handler.Kind,
+                OriginalFileName = fileName,
+                Extension = extension.ToLowerInvariant(),
+                ContentType = contentType,
+                SizeBytes = file.Length,
+                ContentHash = hash,
+                UploaderName = uploaderName.Trim(),
+                UploaderUid = uploaderUid,
+                UploadedAt = DateTime.UtcNow,
+            };
+
+            if (info is not null)
+            {
+                media.Width = info.Width;
+                media.Height = info.Height;
+                media.TakenAt = info.TakenAt;
+                media.HasThumbnail = true;
+                media.HasAnimation = info.IsAnimated;
+            }
+
+            // The box's data key has to be committed before anything is written under it,
+            // or a crash here would leave files nothing can ever open again.
+            if (keys.EnsureKey(pool))
+            {
+                await db.SaveChangesAsync(ct);
+            }
+
+            await vault.StoreAsync(tempOriginal, paths.OriginalFile(pool.Id, media.Id, media.Extension), pool, ct);
+            if (media.HasThumbnail)
+            {
+                await vault.StoreAsync(tempThumb, paths.ThumbFile(pool.Id, media.Id), pool, ct);
+                await vault.StoreAsync(tempDisplay, paths.DisplayFile(pool.Id, media.Id), pool, ct);
+            }
+
+            db.Media.Add(media);
+            await db.SaveChangesAsync(ct);
+            return UploadResult.Added(fileName, media.Id);
+        }
+        finally
+        {
+            // Nothing plaintext outlives the request, on any path out of here.
+            DeleteIfExists(tempOriginal);
+            DeleteIfExists(tempThumb);
+            DeleteIfExists(tempDisplay);
+        }
     }
 
     public async Task<bool> ReprocessAsync(Media media, CancellationToken ct = default)
     {
-        var originalPath = paths.OriginalFile(media.PoolId, media.Id, media.Extension);
-        if (!File.Exists(originalPath))
+        var storedPath = paths.OriginalFile(media.PoolId, media.Id, media.Extension);
+        if (!File.Exists(storedPath))
             return false;
 
-        var info = await handlers.For(media.Kind).RenderAsync(
-            originalPath, paths.ThumbFile(media.PoolId, media.Id), paths.DisplayFile(media.PoolId, media.Id), ct);
-        if (info is null)
-            return false;
+        Directory.CreateDirectory(paths.TempDirectory);
+        var tempOriginal = paths.NewTempFile(media.Extension);
+        var tempThumb = paths.NewTempFile(".webp");
+        var tempDisplay = paths.NewTempFile(".webp");
 
-        media.HasThumbnail = true;
-        media.HasAnimation = info.IsAnimated;
-        media.Width = info.Width;
-        media.Height = info.Height;
-        media.TakenAt ??= info.TakenAt;
-        await db.SaveChangesAsync(ct);
-        return true;
+        try
+        {
+            // The renderers need a real file, so the original comes back out in the clear
+            // for as long as it takes to render it.
+            await vault.ExtractAsync(storedPath, tempOriginal, media.Pool, ct);
+
+            var info = await handlers.For(media.Kind).RenderAsync(tempOriginal, tempThumb, tempDisplay, ct);
+            if (info is null)
+                return false;
+
+            await vault.StoreAsync(tempThumb, paths.ThumbFile(media.PoolId, media.Id), media.Pool, ct);
+            await vault.StoreAsync(tempDisplay, paths.DisplayFile(media.PoolId, media.Id), media.Pool, ct);
+
+            media.HasThumbnail = true;
+            media.HasAnimation = info.IsAnimated;
+            media.Width = info.Width;
+            media.Height = info.Height;
+            media.TakenAt ??= info.TakenAt;
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        finally
+        {
+            DeleteIfExists(tempOriginal);
+            DeleteIfExists(tempThumb);
+            DeleteIfExists(tempDisplay);
+        }
     }
 
     public async Task DeleteAsync(Media media)

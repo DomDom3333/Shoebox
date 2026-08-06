@@ -6,11 +6,28 @@ services:
     volumes:
       - shoebox-data:/data
     environment:
+      # Encrypts the uploaded files, the database and the cookie-signing keys on the data
+      # volume. Generate a key with `openssl rand -base64 32` and put it in a .env file next
+      # to this one (SHOEBOX_KEY=...); .env is gitignored. Keep a copy somewhere safe and
+      # NOT in the same backup as the volume: without it the data cannot be recovered.
+      # Leave it unset to store everything in the clear, as before.
+      # Shoebox__EncryptionKey: "${SHOEBOX_KEY}"
+      #
+      # Better still where you have secrets support: point at a file instead, so the key is
+      # never in the container's environment. See the `secrets:` block below.
+      # Shoebox__EncryptionKeyFile: /run/secrets/shoebox_key
+
       # Uncomment and set when running behind a reverse proxy / custom domain,
       # so share links and QR codes point to the public address:
       # Shoebox__PublicBaseUrl: "https://photos.example.com"
       Shoebox__MaxFileSizeMb: "50"
+    # secrets:
+    #   - shoebox_key
     restart: unless-stopped
+
+# secrets:
+#   shoebox_key:
+#     file: ./shoebox.key
 
 volumes:
   shoebox-data:

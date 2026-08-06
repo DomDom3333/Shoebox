@@ -1,5 +1,6 @@
 using Shoebox.Web.Data;
 using Shoebox.Web.Services;
+using Shoebox.Web.Services.Encryption;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRCoder;
@@ -73,7 +74,7 @@ public static class MediaEndpoints
     }
 
     private static async Task<IResult> ServeThumbAsync(
-        Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths)
+        Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths, FileVault vault)
     {
         var media = await FindAccessibleMediaAsync(id, context, db, access);
         if (media is null)
@@ -88,11 +89,11 @@ public static class MediaEndpoints
         }
 
         context.Response.Headers.CacheControl = "private, max-age=86400";
-        return Results.File(thumbPath, "image/webp");
+        return Results.Stream(vault.OpenRead(thumbPath, media.Pool), "image/webp");
     }
 
     private static async Task<IResult> ServeDisplayAsync(
-        Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths)
+        Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths, FileVault vault)
     {
         var media = await FindAccessibleMediaAsync(id, context, db, access);
         if (media is null)
@@ -107,11 +108,15 @@ public static class MediaEndpoints
         }
 
         context.Response.Headers.CacheControl = "private, max-age=86400";
-        return Results.File(displayPath, "image/webp", enableRangeProcessing: true);
+
+        // The decrypting stream is seekable and reports the plaintext length, so range
+        // handling stays ASP.NET's job exactly as it was when this served the file directly.
+        return Results.Stream(vault.OpenRead(displayPath, media.Pool), "image/webp",
+            enableRangeProcessing: true);
     }
 
     private static async Task<IResult> ServeOriginalAsync(
-        Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths,
+        Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths, FileVault vault,
         [FromQuery] bool download = false)
     {
         var media = await FindAccessibleMediaAsync(id, context, db, access);
@@ -127,7 +132,7 @@ public static class MediaEndpoints
         }
 
         context.Response.Headers.CacheControl = "private, max-age=86400";
-        return Results.File(path, media.ContentType,
+        return Results.Stream(vault.OpenRead(path, media.Pool), media.ContentType,
             fileDownloadName: download ? media.OriginalFileName : null,
             enableRangeProcessing: true);
     }
@@ -238,7 +243,7 @@ public static class MediaEndpoints
         var zipName = $"{SafeFileName(pool.Name)}{(mode == "others" ? "_others" : "")}.zip";
         context.Response.ContentType = "application/zip";
         context.Response.Headers.ContentDisposition = $"attachment; filename=\"{zipName}\"";
-        await zip.WriteAsync(items, context.Response.Body, context.RequestAborted);
+        await zip.WriteAsync(pool, items, context.Response.Body, context.RequestAborted);
         return Results.Empty;
     }
 

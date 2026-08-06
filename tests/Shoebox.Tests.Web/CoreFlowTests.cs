@@ -1,10 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using ImageMagick;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
+using static Shoebox.Tests.Web.BoxClient;
 
 namespace Shoebox.Tests.Web;
 
@@ -26,7 +25,7 @@ public class CoreFlowTests
     public async Task Animated_gif_gets_a_moving_proxy_and_a_still_thumbnail()
     {
         using var factory = new ShoeboxWebApplicationFactory();
-        using var owner = CreateClient(factory);
+        using var owner = Create(factory);
         var code = await CreateBoxAsync(owner);
 
         var added = await UploadAsync(owner, code, "Alice", "party.gif", MakeGif(frameCount: 3));
@@ -52,7 +51,7 @@ public class CoreFlowTests
     public async Task Still_gif_is_not_treated_as_an_animation()
     {
         using var factory = new ShoeboxWebApplicationFactory();
-        using var owner = CreateClient(factory);
+        using var owner = Create(factory);
         var code = await CreateBoxAsync(owner);
 
         var added = await UploadAsync(owner, code, "Alice", "still.gif", MakeGif(frameCount: 1));
@@ -85,7 +84,7 @@ public class CoreFlowTests
     public async Task Video_upload_is_stored_downloadable_and_marked_in_the_gallery()
     {
         using var factory = new ShoeboxWebApplicationFactory();
-        using var owner = CreateClient(factory);
+        using var owner = Create(factory);
         var code = await CreateBoxAsync(owner);
 
         var added = await UploadAsync(owner, code, "Alice", "clip.mp4", Mp4Header);
@@ -126,7 +125,7 @@ public class CoreFlowTests
         try
         {
             using var factory = new ShoeboxWebApplicationFactory();
-            using var owner = CreateClient(factory);
+            using var owner = Create(factory);
             var code = await CreateBoxAsync(owner);
 
             var added = await UploadAsync(
@@ -195,7 +194,7 @@ public class CoreFlowTests
     public async Task File_that_is_not_really_a_video_is_rejected()
     {
         using var factory = new ShoeboxWebApplicationFactory();
-        using var owner = CreateClient(factory);
+        using var owner = Create(factory);
         var code = await CreateBoxAsync(owner);
 
         var result = await UploadAsync(owner, code, "Alice", "not-really.mp4", FortyPixelPng);
@@ -214,7 +213,7 @@ public class CoreFlowTests
     public async Task Protected_box_core_flow_enforces_access_and_cleans_up_deleted_photo()
     {
         using var factory = new ShoeboxWebApplicationFactory();
-        using var owner = CreateClient(factory);
+        using var owner = Create(factory);
         var code = await CreateBoxAsync(owner, password: "festival-secret");
 
         var added = await UploadAsync(owner, code, "Alice", "sample.png", FortyPixelPng);
@@ -225,7 +224,7 @@ public class CoreFlowTests
         Assert.Equal(HttpStatusCode.OK, thumb.StatusCode);
         Assert.Equal("image/webp", thumb.Content.Headers.ContentType?.MediaType);
 
-        using var guest = CreateClient(factory);
+        using var guest = Create(factory);
         Assert.Equal(
             HttpStatusCode.NotFound,
             (await guest.GetAsync($"/api/media/{mediaId}/original")).StatusCode);
@@ -271,7 +270,7 @@ public class CoreFlowTests
     public async Task Corrupt_image_is_rejected_and_not_left_on_disk()
     {
         using var factory = new ShoeboxWebApplicationFactory();
-        using var owner = CreateClient(factory);
+        using var owner = Create(factory);
         var code = await CreateBoxAsync(owner);
 
         var result = await UploadAsync(owner, code, "Alice", "broken.jpg", [1, 2, 3, 4]);
@@ -287,72 +286,4 @@ public class CoreFlowTests
             path => Path.GetFileName(path).StartsWith("upload_", StringComparison.Ordinal));
     }
 
-    private static HttpClient CreateClient(ShoeboxWebApplicationFactory factory) =>
-        factory.CreateClient(new WebApplicationFactoryClientOptions
-        {
-            AllowAutoRedirect = false,
-            HandleCookies = true
-        });
-
-    private static async Task<string> CreateBoxAsync(HttpClient client, string? password = null)
-    {
-        var response = await PostRazorFormAsync(
-            client,
-            "/Create",
-            new Dictionary<string, string>
-            {
-                ["name"] = "Test box",
-                ["description"] = "Integration test",
-                ["password"] = password ?? "",
-                ["expiryDays"] = "0"
-            });
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        var location = Assert.IsType<Uri>(response.Headers.Location);
-        var match = Regex.Match(location.OriginalString, @"/p/([^/]+)/admin");
-        Assert.True(match.Success, $"Unexpected create redirect: {location}");
-        return match.Groups[1].Value;
-    }
-
-    private static async Task<HttpResponseMessage> PostRazorFormAsync(
-        HttpClient client,
-        string path,
-        Dictionary<string, string> fields)
-    {
-        var get = await client.GetAsync(path);
-        get.EnsureSuccessStatusCode();
-        var html = await get.Content.ReadAsStringAsync();
-        var tokenMatch = Regex.Match(
-            html,
-            "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
-        Assert.True(tokenMatch.Success, $"No antiforgery token found at {path}.");
-        fields["__RequestVerificationToken"] = WebUtility.HtmlDecode(tokenMatch.Groups[1].Value);
-        return await client.PostAsync(path, new FormUrlEncodedContent(fields));
-    }
-
-    private static async Task<UploadResponse> UploadAsync(
-        HttpClient client,
-        string code,
-        string uploader,
-        string fileName,
-        byte[] bytes)
-    {
-        using var form = new MultipartFormDataContent();
-        form.Add(new StringContent(uploader), "uploaderName");
-        var file = new ByteArrayContent(bytes);
-        file.Headers.ContentType =
-            new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
-        form.Add(file, "files", fileName);
-
-        var response = await client.PostAsync($"/api/p/{code}/media", form);
-        response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<UploadEnvelope>();
-        return Assert.Single(Assert.IsType<UploadEnvelope>(body).Results);
-    }
-
-    private sealed record UploadEnvelope(UploadResponse[] Results);
-    private sealed record UploadResponse(
-        string FileName,
-        string Status,
-        Guid? MediaId,
-        string? Reason);
 }

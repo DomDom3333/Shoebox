@@ -9,11 +9,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The encrypted-file format is an implementation detail, but one worth testing directly. -->
+    <InternalsVisibleTo Include="Shoebox.Tests.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.15.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <!--
+      Sqlite.Core rather than the Sqlite meta-package, so the SQLite native build comes from
+      the SQLCipher bundle below instead of the stock one. SQLCipher is SQLite plus encryption,
+      and reads unencrypted databases exactly as before when no key is configured.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" Version="10.0.10" />
     <PackageReference Include="QRCoder" Version="1.8.0" />
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
   </ItemGroup>
 
 </Project>

@@ -3,8 +3,10 @@ using Shoebox.Web;
 using Shoebox.Web.Api;
 using Shoebox.Web.Data;
 using Shoebox.Web.Services;
+using Shoebox.Web.Services.Encryption;
 using ImageMagick;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +20,12 @@ var dataRoot = Path.GetFullPath(opts.DataPath);
 Directory.CreateDirectory(dataRoot);
 Directory.CreateDirectory(Path.Combine(dataRoot, "keys"));
 
+// Resolved before anything opens the data directory: the media files, the database and the
+// cookie-signing key ring are all keyed from this, and it must be read (and taken back out of
+// the environment) before any child process could inherit it.
+var masterKey = MasterKey.Resolve(builder.Configuration);
+builder.Services.AddSingleton(masterKey);
+
 // Cap what the image decoder will attempt, as a backstop against decode bombs
 // (ImageRenderer also rejects oversized images up front from the header).
 ResourceLimits.Width = (ulong)opts.MaxImageDimension;
@@ -25,15 +33,25 @@ ResourceLimits.Height = (ulong)opts.MaxImageDimension;
 ResourceLimits.Area = (ulong)opts.MaxImagePixels;
 ResourceLimits.Memory = 512UL * 1024 * 1024;
 
+var databaseFile = Path.Combine(dataRoot, "shoebox.db");
 builder.Services.AddDbContext<AppDbContext>(o =>
-    o.UseSqlite($"Data Source={Path.Combine(dataRoot, "shoebox.db")}"));
+    o.UseSqlite(DatabaseEncryption.ConnectionString(databaseFile, masterKey)));
 
 // Signed cookies must survive container restarts, so keys live on the data volume.
-builder.Services.AddDataProtection()
+var dataProtection = builder.Services.AddDataProtection()
     .SetApplicationName("Shoebox")
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataRoot, "keys")));
 
+if (masterKey.IsEnabled)
+{
+    // Key-ring elements already on disk in the clear keep loading; new ones are written sealed.
+    dataProtection.Services.Configure<KeyManagementOptions>(
+        o => o.XmlEncryptor = new MasterKeyXmlEncryptor(masterKey));
+}
+
 builder.Services.AddSingleton<StoragePaths>();
+builder.Services.AddSingleton<PoolKeyRing>();
+builder.Services.AddSingleton<FileVault>();
 builder.Services.AddSingleton<UploaderIdentity>();
 builder.Services.AddSingleton<PoolAccessService>();
 builder.Services.AddSingleton<ShareLinkService>();
@@ -96,7 +114,30 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<StoragePaths>().EnsureBaseDirectories();
+    var paths = scope.ServiceProvider.GetRequiredService<StoragePaths>();
+    var startupLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Shoebox.Storage");
+
+    paths.EnsureBaseDirectories();
+
+    // Plaintext scratch from an upload that was interrupted by a crash or a restart.
+    paths.ClearTempDirectory();
+
+    if (masterKey.IsEnabled)
+    {
+        startupLog.LogInformation("Storage encryption is on (key from {Source})", masterKey.Source);
+    }
+    else
+    {
+        startupLog.LogWarning(
+            "Storage encryption is off: uploads and the database are stored in the clear. " +
+            "Set {Variable} to a base64 32-byte key to turn it on (openssl rand -base64 32)",
+            MasterKey.KeyVariable);
+    }
+
+    // Must run before EF opens the database: this is what encrypts an existing plaintext
+    // database in place, and what refuses to start on a missing or wrong key.
+    DatabaseEncryption.Prepare(paths.DatabaseFile, masterKey, startupLog);
+
     await scope.ServiceProvider.GetRequiredService<AppDbContext>().UpgradeAsync();
 }
 

@@ -29,7 +29,7 @@ RUN apt-get update \
 # ownership, so the non-root app can write to it with no privileged entrypoint.
 # (The app also creates these at startup; pre-creating just seeds a fresh volume.)
 ENV Shoebox__DataPath=/data
-RUN mkdir -p /data/keys /data/pools && chown -R $APP_UID /data
+RUN mkdir -p /data/keys /data/pools /data/tmp && chown -R $APP_UID /data
 VOLUME /data
 
 USER $APP_UID

@@ -1,10 +1,11 @@
 using System.Security.Cryptography;
 using Shoebox.Web.Data;
+using Shoebox.Web.Services.Encryption;
 using Microsoft.EntityFrameworkCore;
 
 namespace Shoebox.Web.Services;
 
-public class PoolService(AppDbContext db, StoragePaths paths)
+public class PoolService(AppDbContext db, StoragePaths paths, PoolKeyRing keys)
 {
     // No 0/O/1/I/L to keep codes easy to read aloud and type from a phone.
     private const string CodeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -23,6 +24,8 @@ public class PoolService(AppDbContext db, StoragePaths paths)
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = expiresAt,
         };
+
+        keys.EnsureKey(pool);
 
         db.Pools.Add(pool);
         await db.SaveChangesAsync();
@@ -64,6 +67,10 @@ public class PoolService(AppDbContext db, StoragePaths paths)
 
     public void DeletePoolFiles(Guid poolId)
     {
+        // Removing the row already took the box's wrapped data key with it, which is what makes
+        // a deleted box unrecoverable from an old backup; this just clears the cached copy.
+        keys.Forget(poolId);
+
         var dir = paths.PoolDirectory(poolId);
         if (Directory.Exists(dir))
         {
