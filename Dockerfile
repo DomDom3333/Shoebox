@@ -13,6 +13,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
+# Ship the licence with the binary: the AGPL asks that recipients of the program get a copy
+# of it, and an image is how nearly everyone receives Shoebox.
+COPY LICENSE /app/LICENSE
+
 # ffmpeg is used for exactly one thing: grabbing a single poster frame from uploaded
 # videos. Nothing is transcoded or streamed. Without it videos still upload and download,
 # they just get a placeholder tile instead of a frame.

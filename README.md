@@ -11,7 +11,7 @@ for a group, and it fills itself.
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![Build](https://github.com/DomDom3333/Shoebox/actions/workflows/docker.yml/badge.svg)
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-green)
 
 ![The Shoebox gallery: a shared box of event photos, filterable by uploader, with per-photo likes and a "you" badge on your own uploads](docs/screenshots/gallery.png)
 
@@ -312,4 +312,31 @@ vanilla JS/CSS front end, built as a multi-stage Docker image.
 
 ## License
 
-[MIT](LICENSE)
+Copyright (C) 2026 Dominik Essenhofer and the Shoebox contributors.
+
+Shoebox is free software: you can redistribute it and/or modify it under the terms of the
+[GNU Affero General Public License](LICENSE) as published by the Free Software Foundation,
+either version 3 of the License, or (at your option) any later version.
+
+It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Affero General Public License for more details.
+
+The AGPL is the GPL plus one extra clause that matters for software like this: if you run a
+modified Shoebox where other people can reach it over a network, you have to offer those users
+the source of your modified version. Running it unmodified for your wedding, or hacking on it
+privately, needs nothing from you. That is the point of the licence here: the software is free
+and stays free, including for the guests who only ever see it through a browser.
+
+To satisfy that clause, every page links to the source in the header and the footer. If you
+deploy a fork, point those links at *your* source, not at this repository — see
+`src/Shoebox.Web/Pages/Shared/_Layout.cshtml`.
+
+Shoebox was released under the MIT licence up to and including commit
+[`3e1d71f`](https://github.com/DomDom3333/Shoebox/commit/3e1d71f); that history remains
+available under MIT, and third-party contributions made under MIT are included here under the
+terms MIT permits. Everything from the relicensing commit onward is AGPL-3.0-or-later.
+
+Bundled third-party components keep their own licences: Instrument Serif is under the SIL Open
+Font License (`src/Shoebox.Web/wwwroot/fonts/OFL.txt`), and the NuGet dependencies listed under
+*Tech stack* are covered by their respective licences.

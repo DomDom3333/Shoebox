@@ -170,6 +170,23 @@ img { max-width: 100%; }
   flex-wrap: wrap;
 }
 
+/* The AGPL source offer sits on its own row under the two taglines, so it reads as a
+   standing notice rather than a third piece of footer chatter. */
+.site-footer .footer-source {
+  flex-basis: 100%;
+  order: 1;
+}
+
+.site-footer .footer-source a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.site-footer .footer-source a:hover {
+  color: var(--ink);
+}
+
 /* ---------- Type ---------- */
 
 h1 {
