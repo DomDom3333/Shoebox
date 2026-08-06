@@ -41,6 +41,14 @@
     <footer class="site-footer">
         <span>Shoebox. Fill a box together, take home what you love.</span>
         <span>Made for one weekend, not forever.</span>
+        @* AGPLv3 section 13: anyone using this over a network must be offered the source of
+           the version they are actually talking to. If you deploy a modified Shoebox, point
+           this link (and the one in the header) at your own source, not at the upstream repo. *@
+        <span class="footer-source">
+            Free software under the
+            <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">AGPLv3</a>
+            &mdash; <a href="https://github.com/DomDom3333/Shoebox" target="_blank" rel="noopener noreferrer">get the source</a>.
+        </span>
     </footer>
     <script src="~/js/theme.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
