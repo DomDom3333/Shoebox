@@ -22,6 +22,8 @@ public class VideoHandler(VideoRenderer renderer, IOptions<ShoeboxOptions> optio
 
     public string? ContentTypeFor(string extension) => ContentTypes.GetValueOrDefault(extension);
 
+    public IReadOnlyCollection<string> Extensions => ContentTypes.Keys;
+
     public long MaxBytes => options.Value.MaxVideoFileSizeBytes;
 
     public string? Reject(string originalPath) => VideoRenderer.LooksLikeVideo(originalPath)

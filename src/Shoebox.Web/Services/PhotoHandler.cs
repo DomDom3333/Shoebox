@@ -24,6 +24,8 @@ public class PhotoHandler(ImageRenderer renderer, IOptions<ShoeboxOptions> optio
 
     public string? ContentTypeFor(string extension) => ContentTypes.GetValueOrDefault(extension);
 
+    public IReadOnlyCollection<string> Extensions => ContentTypes.Keys;
+
     public long MaxBytes => options.Value.MaxFileSizeBytes;
 
     // Decoding is the check: anything that isn't really an image fails to render.

@@ -16,6 +16,12 @@ public interface IMediaHandler
     /// </summary>
     string? ContentTypeFor(string extension);
 
+    /// <summary>
+    /// Every extension this handler takes, so the browser can be told the ceiling that applies
+    /// to a file before it starts uploading it.
+    /// </summary>
+    IReadOnlyCollection<string> Extensions { get; }
+
     /// <summary>Per-file upload ceiling for this kind.</summary>
     long MaxBytes { get; }
 
@@ -63,4 +69,14 @@ public class MediaHandlers(IEnumerable<IMediaHandler> handlers)
     }
 
     public IMediaHandler For(MediaKind kind) => all.First(h => h.Kind == kind);
+
+    /// <summary>
+    /// The per-file ceiling for every extension we accept. The browser checks a file against
+    /// this before sending it: an over-limit body is cut off mid-upload by the request-size
+    /// limit, and a connection reset reaches the page as a bare network error rather than as
+    /// the reason the file was refused.
+    /// </summary>
+    public IReadOnlyDictionary<string, long> MaxBytesByExtension() => all
+        .SelectMany(h => h.Extensions.Select(e => (Extension: e, h.MaxBytes)))
+        .ToDictionary(x => x.Extension, x => x.MaxBytes, StringComparer.OrdinalIgnoreCase);
 }
