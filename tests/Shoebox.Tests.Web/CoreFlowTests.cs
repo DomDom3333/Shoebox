@@ -287,6 +287,63 @@ public class CoreFlowTests
             path => Path.GetFileName(path).StartsWith("upload_", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task Gallery_advertises_the_configured_limit_for_every_accepted_extension()
+    {
+        // Deliberately not the defaults, and photos apart from videos: a page that hardcoded a
+        // ceiling, or applied the photo one to videos, would still pass against the defaults.
+        using var factory = new ShoeboxWebApplicationFactory();
+        factory.Settings["Shoebox:MaxFileSizeMb"] = "7";
+        factory.Settings["Shoebox:MaxVideoFileSizeMb"] = "333";
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var limits = await UploadLimitsAsync(owner, code);
+
+        Assert.Equal(333L * 1024 * 1024, limits[".mp4"]);
+        Assert.Equal(333L * 1024 * 1024, limits[".mov"]);
+        Assert.Equal(7L * 1024 * 1024, limits[".jpg"]);
+        Assert.Equal(7L * 1024 * 1024, limits[".heic"]);
+
+        // A format the server accepts but the page never advertises is the failure this guards:
+        // the browser would wave the file through and the upload would die mid-body instead.
+        var accepted = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif", ".mp4", ".m4v", ".mov", ".webm" };
+        Assert.Equal(accepted.Order(), limits.Keys.Order());
+    }
+
+    [Fact]
+    public async Task Video_over_the_configured_limit_is_rejected_with_a_reason_naming_the_limit()
+    {
+        // The browser refuses an over-limit file before sending it, so this is the backstop for
+        // anything that posts anyway. It has to answer, not drop the connection.
+        using var factory = new ShoeboxWebApplicationFactory();
+        factory.Settings["Shoebox:MaxVideoFileSizeMb"] = "1";
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var oversized = new byte[2 * 1024 * 1024];
+        Mp4Header.CopyTo(oversized, 0);
+
+        var result = await UploadAsync(owner, code, "Alice", "holiday.mp4", oversized);
+
+        Assert.Equal("rejected", result.Status);
+        Assert.Null(result.MediaId);
+        Assert.Contains("1 MB", result.Reason);
+    }
+
+    private static async Task<Dictionary<string, long>> UploadLimitsAsync(HttpClient client, string code)
+    {
+        var gallery = await client.GetAsync($"/p/{code}");
+        gallery.EnsureSuccessStatusCode();
+        var html = await gallery.Content.ReadAsStringAsync();
+
+        var match = Regex.Match(html, "data-upload-limits=\"([^\"]*)\"");
+        Assert.True(match.Success, "Gallery page advertises no upload limits.");
+        var json = WebUtility.HtmlDecode(match.Groups[1].Value);
+        return Assert.IsType<Dictionary<string, long>>(
+            JsonSerializer.Deserialize<Dictionary<string, long>>(json));
+    }
+
     private static HttpClient CreateClient(ShoeboxWebApplicationFactory factory) =>
         factory.CreateClient(new WebApplicationFactoryClientOptions
         {
