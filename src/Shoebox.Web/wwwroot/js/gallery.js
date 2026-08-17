@@ -134,6 +134,22 @@
     }
   }
 
+  // Turns a failure the browser couldn't explain into one the uploader can act on, by asking
+  // the server a question small enough to answer even when a large upload just died.
+  function failWithDiagnosis(reject, fallback) {
+    fetch(`/api/p/${poolCode}/status`, { cache: "no-store" })
+      .then((res) => {
+        if (res.status === 401) return "the box locked again — refresh the page to re-enter the password";
+        if (res.status === 404) return "this box is gone — it may have expired";
+        // The box is fine and reachable, so it was this particular upload that was refused.
+        if (res.ok) return `${fallback} — it may be larger than the server accepts`;
+        return fallback;
+      })
+      // The small request failed too, so the connection really is the problem.
+      .catch(() => "lost the connection to the server")
+      .then((reason) => reject(new Error(reason)));
+  }
+
   function uploadOne(file, onProgress) {
     // XHR instead of fetch: fetch has no upload progress events.
     return new Promise((resolve, reject) => {
@@ -148,21 +164,30 @@
       });
       xhr.addEventListener("load", () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            // A 200 that isn't ours — a proxy's interstitial, most likely.
+            failWithDiagnosis(reject, "the server sent back something unexpected");
+          }
         } else if (xhr.status === 401) {
           reject(new Error("box is locked; refresh the page"));
         } else if (xhr.status === 413) {
           reject(new Error(`file too large — ${limitsSummary || "try a smaller one"}`));
         } else {
-          let msg = "upload failed";
-          try { msg = JSON.parse(xhr.responseText).error || msg; } catch { /* keep default */ }
-          reject(new Error(msg));
+          // An error page rather than our JSON means whatever went wrong went wrong before
+          // the upload was ever looked at, so the server is worth asking about.
+          let msg = null;
+          try { msg = JSON.parse(xhr.responseText).error; } catch { /* not ours */ }
+          if (msg) reject(new Error(msg));
+          else failWithDiagnosis(reject, `the server refused this upload (error ${xhr.status})`);
         }
       });
-      // Anything the browser can't attribute to a response lands here, including a body the
-      // server cut off for being too large — hence the size hint alongside the connection one.
+      // A request that dies without a response lands here, and the event says nothing about
+      // why: a dropped connection, a box that locked itself again, and a proxy hanging up on
+      // a body it thought too big are one and the same to the browser. Don't guess — ask.
       xhr.addEventListener("error", () =>
-        reject(new Error("upload was cut off — connection lost, or too big for this server"))
+        failWithDiagnosis(reject, "the upload was cut off before the server answered")
       );
       xhr.addEventListener("abort", () => reject(new Error("upload cancelled")));
       xhr.addEventListener("timeout", () => reject(new Error("upload timed out")));

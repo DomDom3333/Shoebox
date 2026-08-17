@@ -13,6 +13,7 @@ public static class MediaEndpoints
         var api = app.MapGroup("/api");
 
         api.MapPost("/p/{code}/media", UploadAsync).DisableAntiforgery();
+        api.MapGet("/p/{code}/status", PoolStatusAsync);
         api.MapGet("/media/{id:guid}/thumb", ServeThumbAsync);
         api.MapGet("/media/{id:guid}/display", ServeDisplayAsync);
         api.MapGet("/media/{id:guid}/original", ServeOriginalAsync);
@@ -70,6 +71,26 @@ public static class MediaEndpoints
         }
 
         return Results.Ok(new { results });
+    }
+
+    /// <summary>
+    /// Whether this box is still there and still open to the caller. Small and cheap on
+    /// purpose: an upload that dies without a response leaves the browser able to report
+    /// nothing but "network error", and this is what the page asks afterwards to turn that
+    /// into something the uploader can act on.
+    /// </summary>
+    private static async Task<IResult> PoolStatusAsync(
+        string code, HttpContext context, PoolService pools, PoolAccessService access)
+    {
+        var pool = await pools.FindByCodeAsync(code);
+        if (pool is null)
+        {
+            return Results.NotFound();
+        }
+
+        return access.CanView(context, pool)
+            ? Results.Ok(new { open = true })
+            : Results.Unauthorized();
     }
 
     private static async Task<IResult> ServeThumbAsync(

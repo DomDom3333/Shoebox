@@ -170,10 +170,16 @@ a real image within the pixel limits are rejected at upload.
 
 The browser checks the extension and the size against these limits before it sends anything,
 so a file that wouldn't be accepted is refused in the moment it's picked, naming what the box
-does take. That check matters most for the size: a file past the request-body limit has its
-connection cut part-way through, which the browser can only report as a generic network
-error, with nothing to say the size was the problem. The server re-checks everything
-regardless — the browser-side check is there to save the wait, not to enforce anything.
+does take. The server re-checks everything regardless — the browser-side check is there to
+save the wait, not to enforce anything.
+
+An upload can also fail without the server ever answering: a request that exceeds the
+body limit (the app's own, or a reverse proxy's `client_max_body_size`) is cut off part-way
+through, and a box that locked itself again answers before the body is read. The browser
+reports every one of these as the same bare error event, with nothing in it to act on, so the
+page follows a failed upload with a small request to `GET /api/p/{code}/status` and reports
+what that says instead: box gone, box locked, or box fine — in which case it was that
+particular upload the server would not take.
 
 ### Animations
 

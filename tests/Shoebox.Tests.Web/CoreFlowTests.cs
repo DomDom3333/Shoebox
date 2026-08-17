@@ -276,6 +276,25 @@ public class CoreFlowTests
     }
 
     [Fact]
+    public async Task Pool_status_says_whether_the_box_is_reachable_and_open()
+    {
+        using var factory = new ShoeboxWebApplicationFactory();
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner, password: "festival-secret");
+
+        // This is what the page asks after an upload dies without a response, so it has to
+        // separate the three things the browser's error event cannot: box gone, box locked,
+        // and box fine (so it was that upload the server refused).
+        var open = await owner.GetAsync($"/api/p/{code}/status");
+        Assert.Equal(HttpStatusCode.OK, open.StatusCode);
+        Assert.True((await open.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("open").GetBoolean());
+
+        using var guest = CreateClient(factory);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await guest.GetAsync($"/api/p/{code}/status")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync("/api/p/NOSUCHBX/status")).StatusCode);
+    }
+
+    [Fact]
     public async Task File_that_is_not_really_a_video_is_rejected()
     {
         using var factory = new ShoeboxWebApplicationFactory();
