@@ -22,6 +22,14 @@ public class CoreFlowTests
         (byte)'i', (byte)'s', (byte)'o', (byte)'m', (byte)'m', (byte)'p', (byte)'4', (byte)'2',
     ];
 
+    // An EBML header, which is what a Matroska (.mkv) or WebM file starts with. Enough to clear
+    // the container check without needing a real clip, as with Mp4Header above.
+    private static readonly byte[] MatroskaHeader =
+    [
+        0x1A, 0x45, 0xDF, 0xA3, 0x01, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x1F, 0x42, 0x86, 0x81, 0x01,
+    ];
+
     [Fact]
     public async Task Animated_gif_gets_a_moving_proxy_and_a_still_thumbnail()
     {
@@ -189,6 +197,82 @@ public class CoreFlowTests
         }
 
         return null;
+    }
+
+    [Fact]
+    public async Task Matroska_clip_is_accepted_like_any_other_video()
+    {
+        using var factory = new ShoeboxWebApplicationFactory();
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var added = await UploadAsync(owner, code, "Alice", "clip.mkv", MatroskaHeader);
+        Assert.Equal("added", added.Status);
+        var mediaId = Assert.IsType<Guid>(added.MediaId);
+
+        var original = await owner.GetAsync($"/api/media/{mediaId}/original");
+        Assert.Equal(HttpStatusCode.OK, original.StatusCode);
+        Assert.Equal("video/x-matroska", original.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(MatroskaHeader, await original.Content.ReadAsByteArrayAsync());
+
+        var gallery = await owner.GetAsync($"/p/{code}");
+        Assert.Contains("media-badge\">\u25B6 Video", await gallery.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Rejected_file_type_says_what_the_box_does_take()
+    {
+        using var factory = new ShoeboxWebApplicationFactory();
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var result = await UploadAsync(owner, code, "Alice", "notes.txt", [1, 2, 3, 4]);
+
+        Assert.Equal("rejected", result.Status);
+        Assert.Null(result.MediaId);
+        // "Unsupported" alone leaves the uploader guessing; the accepted formats and their
+        // ceilings have to be in the message itself.
+        Assert.Contains(".txt", result.Reason);
+        Assert.Contains("mkv", result.Reason);
+        Assert.Contains("jpg", result.Reason);
+        Assert.Contains("200 MB", result.Reason);
+    }
+
+    [Fact]
+    public async Task Oversized_video_is_rejected_with_its_size_and_the_limit()
+    {
+        using var factory = new ShoeboxWebApplicationFactory(new Dictionary<string, string>
+        {
+            ["Shoebox:MaxVideoFileSizeMb"] = "1",
+        });
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var oversized = new byte[3 * 1024 * 1024];
+        MatroskaHeader.CopyTo(oversized, 0);
+        var result = await UploadAsync(owner, code, "Alice", "long.mkv", oversized);
+
+        Assert.Equal("rejected", result.Status);
+        Assert.Null(result.MediaId);
+        Assert.Contains("Too big (3 MB)", result.Reason);
+        Assert.Contains("videos can be up to 1 MB", result.Reason);
+    }
+
+    [Fact]
+    public async Task Gallery_page_tells_the_browser_what_it_may_send()
+    {
+        using var factory = new ShoeboxWebApplicationFactory();
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var html = await (await owner.GetAsync($"/p/{code}")).Content.ReadAsStringAsync();
+
+        // The pre-flight check in gallery.js reads these; without them a file the server
+        // would refuse is uploaded in full first, and an oversized one dies as "network error".
+        Assert.Contains("data-limits=", html);
+        Assert.Contains("&quot;.mkv&quot;:209715200", html);
+        Assert.Contains("&quot;.jpg&quot;:52428800", html);
+        Assert.Contains("accept=\"image/*,video/*,", html);
     }
 
     [Fact]

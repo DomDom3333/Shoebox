@@ -22,7 +22,8 @@ public class MediaService(AppDbContext db, StoragePaths paths, MediaHandlers han
         var match = handlers.For(extension);
         if (match is null)
         {
-            return UploadResult.Rejected(fileName, "Unsupported file type");
+            // Say what does fit: "unsupported" on its own leaves the uploader guessing.
+            return UploadResult.Rejected(fileName, handlers.Policy.RejectionFor(extension));
         }
 
         var (handler, contentType) = match.Value;
@@ -34,7 +35,9 @@ public class MediaService(AppDbContext db, StoragePaths paths, MediaHandlers han
 
         if (file.Length > handler.MaxBytes)
         {
-            return UploadResult.Rejected(fileName, $"Larger than {handler.MaxBytes / (1024 * 1024)} MB");
+            return UploadResult.Rejected(fileName,
+                $"Too big ({UploadPolicy.DescribeSize(file.Length)}) — {handler.Label}s can be up to "
+                + UploadPolicy.DescribeSize(handler.MaxBytes));
         }
 
         Directory.CreateDirectory(paths.OriginalsDirectory(pool.Id));

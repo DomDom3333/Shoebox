@@ -514,6 +514,13 @@ input[type="checkbox"] { accent-color: var(--ink); }
   color: var(--muted);
 }
 
+/* What fits, said up front, so nobody finds out by watching a long upload fail. */
+.upload-formats {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .upload-progress { list-style: none; margin: 0.6rem 0 0; padding: 0; font-size: 0.85rem; }
 .upload-progress li {
   display: flex;
@@ -522,6 +529,14 @@ input[type="checkbox"] { accent-color: var(--ink); }
   padding: 0.3rem 0.1rem;
   border-top: 1px dashed var(--line);
 }
+/* A rejection needs room to say why, so the file name is what gives way. */
+.upload-progress li > span:first-child {
+  min-width: 4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upload-progress .status { text-align: right; }
 .upload-progress .ok { color: var(--ok); }
 .upload-progress .fail { color: var(--danger); }
 

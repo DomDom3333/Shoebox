@@ -12,6 +12,46 @@
 
   // ---------- Upload ----------
 
+  // What the server will take, rendered into the file input by the page: extension -> byte
+  // ceiling. The browser checks against it first, because everything past this point is
+  // expensive to get wrong — a file over the request-body limit has its connection cut
+  // mid-send and surfaces as a bare "network error", with nothing to tell the uploader that
+  // the size was the problem.
+  const limits = parseLimits(fileInput.dataset.limits);
+  const limitsSummary = fileInput.dataset.limitsSummary || "";
+
+  function parseLimits(json) {
+    try {
+      return JSON.parse(json || "{}");
+    } catch {
+      // Without limits the pre-flight check simply stands down and the server decides.
+      return {};
+    }
+  }
+
+  // The reason this file can't be sent, or null when it's worth trying. Wording matches the
+  // server's own rejections, since either can be what lands in the progress list.
+  function whyNotUploadable(file) {
+    const dot = file.name.lastIndexOf(".");
+    const extension = dot > 0 ? file.name.slice(dot).toLowerCase() : "";
+    if (!Object.keys(limits).length) return null;
+
+    const max = limits[extension];
+    if (max === undefined) {
+      const what = extension ? extension + " files" : "files with no extension";
+      return `Can't take ${what} — ${limitsSummary}`;
+    }
+    if (file.size === 0) return "Empty file";
+    if (file.size > max) {
+      return `Too big (${describeSize(file.size)}) — up to ${describeSize(max)}`;
+    }
+    return null;
+  }
+
+  function describeSize(bytes) {
+    return (bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "") + " MB";
+  }
+
   pickBtn.addEventListener("click", () => {
     if (!requireName()) return;
     fileInput.click();
@@ -63,6 +103,13 @@
       progressList.appendChild(item);
       const status = item.querySelector(".status");
 
+      const problem = whyNotUploadable(file);
+      if (problem) {
+        status.textContent = problem;
+        status.className = "status fail";
+        continue;
+      }
+
       try {
         const result = await uploadOne(file, (pct) => (status.textContent = pct + "%"));
         const r = result.results && result.results[0];
@@ -105,14 +152,20 @@
         } else if (xhr.status === 401) {
           reject(new Error("box is locked; refresh the page"));
         } else if (xhr.status === 413) {
-          reject(new Error("file too large"));
+          reject(new Error(`file too large — ${limitsSummary || "try a smaller one"}`));
         } else {
           let msg = "upload failed";
           try { msg = JSON.parse(xhr.responseText).error || msg; } catch { /* keep default */ }
           reject(new Error(msg));
         }
       });
-      xhr.addEventListener("error", () => reject(new Error("network error")));
+      // Anything the browser can't attribute to a response lands here, including a body the
+      // server cut off for being too large — hence the size hint alongside the connection one.
+      xhr.addEventListener("error", () =>
+        reject(new Error("upload was cut off — connection lost, or too big for this server"))
+      );
+      xhr.addEventListener("abort", () => reject(new Error("upload cancelled")));
+      xhr.addEventListener("timeout", () => reject(new Error("upload timed out")));
       xhr.send(form);
     });
   }

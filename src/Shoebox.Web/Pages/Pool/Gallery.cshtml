@@ -53,10 +53,14 @@
         </label>
         <div class="upload-actions">
             <button type="button" class="btn btn-primary" id="pick-files">Add photos</button>
-            <input type="file" id="file-input" accept="image/*,video/*,.heic,.heif,.mp4,.m4v,.mov,.webm" multiple hidden />
+            @* accept only steers the file picker; the drop zone ignores it, so gallery.js
+               checks every file against data-limits before it sends a byte of it. *@
+            <input type="file" id="file-input" accept="@Model.UploadPolicy.Accept" multiple hidden
+                   data-limits="@Model.UploadLimitsJson" data-limits-summary="@Model.UploadPolicy.Summary" />
         </div>
     </div>
     <p class="dropzone" id="dropzone">or drop photos anywhere on this page</p>
+    <p class="upload-formats">Takes @Model.UploadPolicy.Summary.</p>
     <ul class="upload-progress" id="upload-progress"></ul>
 </section>
 
