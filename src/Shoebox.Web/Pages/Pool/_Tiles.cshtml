@@ -1,0 +1,49 @@
+@model Shoebox.Web.Pages.Pool.TileList
+@* Both the first render and the live feed draw prints through here, so an appended
+   tile is the tile a reload would have produced. *@
+@for (var i = 0; i < Model.Items.Count; i++)
+{
+    var item = Model.Items[i];
+    <figure class="tile @(item.Mine ? "mine" : "") @(item.IsVideo ? "video" : "") @(item.IsAnimated ? "animated" : "")" style="--i: @Math.Min(i, 12)"
+            data-id="@item.Id" data-uploader="@item.UploaderName"
+            data-original="/api/media/@item.Id/original" data-filename="@item.FileName"
+            data-sort="@item.SortAt" data-uploaded="@item.UploadedAt">
+        @if (item.HasThumbnail)
+        {
+            <img src="/api/media/@item.Id/thumb" loading="lazy" alt="@item.FileName" />
+        }
+        else
+        {
+            <div class="no-thumb" title="Preview not available for this file"><span>@item.FileName</span></div>
+        }
+        @if (item.IsVideo)
+        {
+            @* Videos aren't played here: the tile shows a still frame, the file downloads. *@
+            <span class="media-badge">▶ Video</span>
+        }
+        else if (item.IsAnimated)
+        {
+            @* The grid holds still; hovering a tile or opening it plays the animation. *@
+            <span class="media-badge">@(item.FileName.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ? "GIF" : "Animated")</span>
+        }
+        <figcaption>
+            <span class="uploader">@item.UploaderName</span>
+            <span class="tile-actions">
+                <button type="button" class="like-btn @(item.LikedByMe ? "liked" : "")"
+                        aria-pressed="@(item.LikedByMe ? "true" : "false")"
+                        title="@(item.LikedByMe ? "Unlike" : "Like") this photo">
+                    <span class="heart" aria-hidden="true">@(item.LikedByMe ? "❤" : "♡")</span>
+                    <span class="like-count">@item.LikeCount</span>
+                </button>
+                @if (item.Mine)
+                {
+                    <span class="badge-you">you</span>
+                }
+                @if (item.Mine || Model.IsAdmin)
+                {
+                    <button type="button" class="delete-btn" title="Delete photo">&times;</button>
+                }
+            </span>
+        </figcaption>
+    </figure>
+}

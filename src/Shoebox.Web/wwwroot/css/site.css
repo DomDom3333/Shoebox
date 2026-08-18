@@ -61,6 +61,10 @@
 
 * { box-sizing: border-box; }
 
+/* `hidden` has to beat the display rules below (buttons are inline-flex, the lightbox a
+   flex overlay), which would otherwise leave a hidden element on screen. */
+[hidden] { display: none !important; }
+
 ::selection { background: #f9e28d; color: #191817; }
 
 html {
@@ -728,8 +732,6 @@ input[type="checkbox"] { accent-color: var(--ink); }
   align-items: center;
   justify-content: center;
 }
-
-.lightbox[hidden] { display: none; }
 
 .lightbox img {
   max-width: 92vw;

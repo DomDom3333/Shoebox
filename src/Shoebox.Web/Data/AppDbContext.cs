@@ -25,6 +25,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Media>(media =>
         {
             media.HasIndex(m => new { m.PoolId, m.ContentHash });
+            // The gallery's live feed asks each box for what landed after a moment in time,
+            // over and over; without this every ask reads and sorts the whole box.
+            media.HasIndex(m => new { m.PoolId, m.UploadedAt });
             media.Property(m => m.OriginalFileName).HasMaxLength(260);
             media.Property(m => m.UploaderName).HasMaxLength(80);
         });

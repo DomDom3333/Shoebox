@@ -22,11 +22,8 @@
     }
     <p class="pool-meta">
         Box code: <strong class="code">@Model.Pool.Code</strong>
-        · @Model.Items.Count photo@(Model.Items.Count == 1 ? "" : "s")
-        @if (Model.Uploaders.Count > 0)
-        {
-            <text>· from @Model.Uploaders.Count @(Model.Uploaders.Count == 1 ? "person" : "people")</text>
-        }
+        · <span id="photo-count">@Model.Items.Count photo@(Model.Items.Count == 1 ? "" : "s")</span>
+        <span id="people-count" hidden="@(Model.Uploaders.Count == 0)">· from @Model.Uploaders.Count @(Model.Uploaders.Count == 1 ? "person" : "people")</span>
     </p>
     @if (Model.Pool.ExpiresAt.HasValue)
     {
@@ -77,83 +74,28 @@
         </select>
     </label>
     <div class="download-buttons">
-        @if (Model.Items.Count > 0)
-        {
-            <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=all">Download all photos</a>
-            @* Phone-only: revealed by gallery.js on touch devices whose browser can
-               hand image files to the OS share sheet (mobile Safari / Chrome). *@
-            <button type="button" class="btn btn-ghost" id="save-gallery-btn" hidden>Save to gallery</button>
-        }
-        else
-        {
-            <span class="btn btn-ghost" aria-disabled="true">Download all photos</span>
-        }
-        @if (Model.HasOthers)
-        {
-            <a class="btn btn-ghost" href="/api/p/@Model.Pool.Code/zip?mode=others"
-               title="Downloads every photo added by other people — everything except your own uploads">Download everyone else's</a>
-        }
-        else
-        {
-            <span class="btn btn-ghost" aria-disabled="true"
-                  title="Nothing to download yet — no one else has added photos">Download everyone else's</span>
-        }
+        <a class="btn btn-ghost" id="download-all" href="/api/p/@Model.Pool.Code/zip?mode=all"
+           hidden="@(Model.Items.Count == 0)">Download all photos</a>
+        <span class="btn btn-ghost" id="download-all-empty" aria-disabled="true"
+              hidden="@(Model.Items.Count > 0)">Download all photos</span>
+        @* Phone-only: revealed by gallery.js on touch devices whose browser can
+           hand image files to the OS share sheet (mobile Safari / Chrome). *@
+        <button type="button" class="btn btn-ghost" id="save-gallery-btn" hidden>Save to gallery</button>
+        <a class="btn btn-ghost" id="download-others" href="/api/p/@Model.Pool.Code/zip?mode=others"
+           title="Downloads every photo added by other people — everything except your own uploads"
+           hidden="@(!Model.HasOthers)">Download everyone else's</a>
+        <span class="btn btn-ghost" id="download-others-empty" aria-disabled="true"
+              title="Nothing to download yet — no one else has added photos"
+              hidden="@(Model.HasOthers)">Download everyone else's</span>
     </div>
 </section>
 
-@if (Model.Items.Count == 0)
-{
-    <div class="empty-state">
-        <p><span class="big">Nothing here yet.</span> You were there. Prove it.</p>
-    </div>
-}
+<div class="empty-state" id="empty-state" hidden="@(Model.Items.Count > 0)">
+    <p><span class="big">Nothing here yet.</span> You were there. Prove it.</p>
+</div>
 
 <div class="gallery" id="gallery">
-    @for (var i = 0; i < Model.Items.Count; i++)
-    {
-        var item = Model.Items[i];
-        <figure class="tile @(item.Mine ? "mine" : "") @(item.IsVideo ? "video" : "") @(item.IsAnimated ? "animated" : "")" style="--i: @Math.Min(i, 12)"
-                data-id="@item.Id" data-uploader="@item.UploaderName"
-                data-original="/api/media/@item.Id/original" data-filename="@item.FileName">
-            @if (item.HasThumbnail)
-            {
-                <img src="/api/media/@item.Id/thumb" loading="lazy" alt="@item.FileName" />
-            }
-            else
-            {
-                <div class="no-thumb" title="Preview not available for this file"><span>@item.FileName</span></div>
-            }
-            @if (item.IsVideo)
-            {
-                @* Videos aren't played here: the tile shows a still frame, the file downloads. *@
-                <span class="media-badge">▶ Video</span>
-            }
-            else if (item.IsAnimated)
-            {
-                @* The grid holds still; hovering a tile or opening it plays the animation. *@
-                <span class="media-badge">@(item.FileName.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ? "GIF" : "Animated")</span>
-            }
-            <figcaption>
-                <span class="uploader">@item.UploaderName</span>
-                <span class="tile-actions">
-                    <button type="button" class="like-btn @(item.LikedByMe ? "liked" : "")"
-                            aria-pressed="@(item.LikedByMe ? "true" : "false")"
-                            title="@(item.LikedByMe ? "Unlike" : "Like") this photo">
-                        <span class="heart" aria-hidden="true">@(item.LikedByMe ? "❤" : "♡")</span>
-                        <span class="like-count">@item.LikeCount</span>
-                    </button>
-                    @if (item.Mine)
-                    {
-                        <span class="badge-you">you</span>
-                    }
-                    @if (item.Mine || Model.IsAdmin)
-                    {
-                        <button type="button" class="delete-btn" title="Delete photo">&times;</button>
-                    }
-                </span>
-            </figcaption>
-        </figure>
-    }
+    <partial name="_Tiles" model="new TileList(Model.Items, Model.IsAdmin)" />
 </div>
 
 <div class="lightbox" id="lightbox" hidden>
