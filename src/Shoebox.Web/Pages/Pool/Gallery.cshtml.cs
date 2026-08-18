@@ -34,9 +34,7 @@ public class GalleryModel(
     // "everyone else's" download only offers itself when it would actually return files.
     public bool HasOthers { get; set; }
 
-    // What the server takes, handed to the page so the browser can turn a file away before
-    // sending it. A 400 MB clip that gets its connection cut for exceeding the request-body
-    // limit reaches the uploader as "network error" and nothing more.
+    // Handed to the page so the browser can turn a file away before sending it.
     public UploadPolicy UploadPolicy => handlers.Policy;
 
     public string UploadLimitsJson => JsonSerializer.Serialize(UploadPolicy.MaxBytesByExtension);

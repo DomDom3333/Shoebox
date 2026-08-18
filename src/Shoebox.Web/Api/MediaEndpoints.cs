@@ -24,10 +24,9 @@ public static class MediaEndpoints
     }
 
     /// <summary>
-    /// Takes one upload. Every way this can fail answers with the reason in the body, in the
-    /// same shape as a success: whatever the page shows the uploader has to come from here,
-    /// because a client left to fill in the blank can only guess, and a guess reads as a
-    /// network problem when the file was simply not one this box takes.
+    /// Takes one upload. Every way this can fail answers with the reason in the body: what the
+    /// page shows has to come from here, since a client filling in the blank itself can only
+    /// guess, and its guess is always that the network was at fault.
     /// </summary>
     private static async Task<IResult> UploadAsync(
         string code,
@@ -64,9 +63,8 @@ public static class MediaEndpoints
         }
         catch (Exception ex) when (ex is BadHttpRequestException or InvalidDataException)
         {
-            // The body ran past the request limit, so it was never read and nothing below has
-            // seen the file. Left alone this surfaces as an unhandled exception and an HTML
-            // error page, which says nothing at all about size.
+            // Past the request-body limit. Left alone this is an unhandled exception and an
+            // HTML error page, which says nothing about size.
             return UploadFailed(StatusCodes.Status413PayloadTooLarge,
                 $"That file is larger than this server accepts — {handlers.Policy.Summary}.");
         }
@@ -95,7 +93,6 @@ public static class MediaEndpoints
         return Results.Ok(new { results });
     }
 
-    /// <summary>An upload that failed outright, carrying why in the body the page reads.</summary>
     private static IResult UploadFailed(int statusCode, string error) =>
         Results.Json(new { error }, statusCode: statusCode);
 

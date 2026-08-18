@@ -16,9 +16,7 @@ public class VideoHandler(VideoRenderer renderer, IOptions<ShoeboxOptions> optio
         [".m4v"] = "video/mp4",
         [".mov"] = "video/quicktime",
         [".webm"] = "video/webm",
-        // Matroska shares WebM's container, so the header check and ffmpeg already handle it;
-        // only the extension was missing, and a phone-sized .mkv would hit the request-body
-        // limit and die as a bare "network error" long before anything said it wasn't wanted.
+        // Matroska shares WebM's container, so the header check and ffmpeg already handled it.
         [".mkv"] = "video/x-matroska",
     };
 

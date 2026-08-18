@@ -45,25 +45,11 @@ public interface IMediaHandler
 }
 
 /// <summary>
-/// What the browser needs to turn a file away before sending it, plus the words to use when
-/// something doesn't fit. A video can be hundreds of megabytes, and a file the server won't
-/// take is worth saying no to in the moment it's picked — not after a long upload, and
-/// certainly not by having the connection cut for exceeding the request-body limit, which
-/// reaches the user as nothing more useful than "network error".
+/// What the server takes: the ceiling per extension, for the browser to check a file against
+/// before sending it, and the same thing in words, for saying why one didn't fit.
 /// </summary>
-/// <param name="MaxBytesByExtension">Accepted extensions (lowercase, dotted) and their ceilings.</param>
-/// <param name="Accept">Value for the file input's accept attribute.</param>
-/// <param name="Summary">Plain-language "what fits", e.g. for the upload card and rejections.</param>
-public record UploadPolicy(
-    IReadOnlyDictionary<string, long> MaxBytesByExtension,
-    string Accept,
-    string Summary)
+public record UploadPolicy(IReadOnlyDictionary<string, long> MaxBytesByExtension, string Summary)
 {
-    /// <summary>The reason to give for a file whose extension nothing here takes.</summary>
-    public string RejectionFor(string extension) =>
-        $"Can't take {(string.IsNullOrWhiteSpace(extension) ? "files with no extension" : extension.ToLowerInvariant() + " files")} — {Summary}";
-
-    /// <summary>Sizes are only ever shown to people, so one decimal of MB is plenty.</summary>
     public static string DescribeSize(long bytes) => $"{bytes / (1024.0 * 1024.0):0.#} MB";
 }
 
@@ -91,33 +77,11 @@ public class MediaHandlers(IEnumerable<IMediaHandler> handlers)
 
     public IMediaHandler For(MediaKind kind) => all.First(h => h.Kind == kind);
 
-    /// <summary>
-    /// What this build accepts, assembled from the handlers so the browser, the upload card and
-    /// the rejection messages can never drift from what the server actually stores.
-    /// </summary>
+    /// <summary>Assembled from the handlers, so nothing that quotes it can drift from them.</summary>
     public UploadPolicy Policy => new(
         all.SelectMany(h => h.ContentTypes.Keys.Select(e => (Extension: e.ToLowerInvariant(), h.MaxBytes)))
             .ToDictionary(x => x.Extension, x => x.MaxBytes, StringComparer.OrdinalIgnoreCase),
-        BuildAccept(),
         string.Join(", ", all.Select(h =>
             $"{h.Label}s ({string.Join(", ", h.ContentTypes.Keys.Select(e => e.TrimStart('.')))}) "
             + $"up to {UploadPolicy.DescribeSize(h.MaxBytes)}")));
-
-    /// <summary>
-    /// The wildcards (image/*, video/*) keep phone pickers showing the camera roll; the explicit
-    /// extensions cover the formats a picker may not map to one (HEIC and MKV in particular).
-    /// Nothing here is a security control — it only steers the picker, and the drop zone ignores
-    /// it entirely — so the real check is <see cref="For(string)"/> on the way in.
-    /// </summary>
-    private string BuildAccept()
-    {
-        var wildcards = all
-            .SelectMany(h => h.ContentTypes.Values)
-            .Select(type => type[..(type.IndexOf('/') + 1)] + "*")
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-        var extensions = all
-            .SelectMany(h => h.ContentTypes.Keys.Select(e => e.ToLowerInvariant()))
-            .Distinct(StringComparer.Ordinal);
-        return string.Join(",", wildcards.Concat(extensions));
-    }
 }

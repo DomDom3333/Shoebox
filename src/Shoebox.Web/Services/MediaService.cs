@@ -22,8 +22,8 @@ public class MediaService(AppDbContext db, StoragePaths paths, MediaHandlers han
         var match = handlers.For(extension);
         if (match is null)
         {
-            // Say what does fit: "unsupported" on its own leaves the uploader guessing.
-            return UploadResult.Rejected(fileName, handlers.Policy.RejectionFor(extension));
+            var what = extension.Length == 0 ? "files with no extension" : $"{extension.ToLowerInvariant()} files";
+            return UploadResult.Rejected(fileName, $"Can't take {what} — {handlers.Policy.Summary}");
         }
 
         var (handler, contentType) = match.Value;

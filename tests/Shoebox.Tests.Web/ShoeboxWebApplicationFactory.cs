@@ -8,10 +8,7 @@ public sealed class ShoeboxWebApplicationFactory : WebApplicationFactory<Program
 {
     private readonly IReadOnlyDictionary<string, string> settings;
 
-    /// <param name="settings">
-    /// Configuration overrides for this instance, e.g. a small size ceiling so the oversized
-    /// path can be exercised without a real 200 MB file.
-    /// </param>
+    /// <param name="settings">Configuration overrides for this instance.</param>
     public ShoeboxWebApplicationFactory(IReadOnlyDictionary<string, string>? settings = null)
     {
         this.settings = settings ?? new Dictionary<string, string>();

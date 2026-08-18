@@ -12,20 +12,11 @@
 
   // ---------- Upload ----------
 
-  // What the server will take, rendered into the file input by the page: extension -> byte
-  // ceiling. The browser checks against it first, because everything past this point is
-  // expensive to get wrong — a file over the request-body limit has its connection cut
-  // mid-send and surfaces as a bare "network error", with nothing to tell the uploader that
-  // the size was the problem.
-  const limits = parseLimits(fileInput.dataset.limits);
+  // What the server takes, extension -> byte ceiling, so a file it would refuse is refused
+  // here instead of after a long upload. The server checks again regardless.
+  const limits = parseJson(fileInput.dataset.limits) || {};
   const limitsSummary = fileInput.dataset.limitsSummary || "";
 
-  function parseLimits(json) {
-    return parseJson(json) || {};
-  }
-
-  // Null for anything that isn't JSON — an error page from a proxy, most likely, which is
-  // exactly the case where the page must not pretend to know what happened.
   function parseJson(text) {
     try {
       return JSON.parse(text);
@@ -34,22 +25,19 @@
     }
   }
 
-  // The reason this file can't be sent, or null when it's worth trying. Wording matches the
-  // server's own rejections, since either can be what lands in the progress list.
+  // Why this file can't be sent, or null when it's worth trying.
   function whyNotUploadable(file) {
-    const dot = file.name.lastIndexOf(".");
-    const extension = dot > 0 ? file.name.slice(dot).toLowerCase() : "";
     if (!Object.keys(limits).length) return null;
 
+    const dot = file.name.lastIndexOf(".");
+    const extension = dot > 0 ? file.name.slice(dot).toLowerCase() : "";
     const max = limits[extension];
     if (max === undefined) {
       const what = extension ? extension + " files" : "files with no extension";
       return `Can't take ${what} — ${limitsSummary}`;
     }
     if (file.size === 0) return "Empty file";
-    if (file.size > max) {
-      return `Too big (${describeSize(file.size)}) — up to ${describeSize(max)}`;
-    }
+    if (file.size > max) return `Too big (${describeSize(file.size)}) — up to ${describeSize(max)}`;
     return null;
   }
 
@@ -151,10 +139,7 @@
       xhr.upload.addEventListener("progress", (e) => {
         if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       });
-      // Whatever went wrong, the reason is the server's to give — every failure it produces
-      // answers with one. Nothing here invents a cause from a bare status code, because the
-      // invented cause is always wrong in the same direction: it blames the connection for
-      // something the server already knew and said.
+      // The reason is the server's to give; nothing here invents one it wasn't told.
       xhr.addEventListener("load", () => {
         const body = parseJson(xhr.responseText);
         if (xhr.status >= 200 && xhr.status < 300) {
@@ -163,15 +148,14 @@
         } else if (body && body.error) {
           reject(new Error(body.error));
         } else if (xhr.status === 413) {
-          // No reason in the body means this 413 came from something in front of the app —
-          // a proxy with a smaller body limit of its own. The status still says what it is.
+          // A 413 with no reason in it came from something in front of the app, but the
+          // status alone still says what happened.
           reject(new Error(`larger than this server accepts — ${limitsSummary}`));
         } else {
           reject(new Error(`the server refused this upload (HTTP ${xhr.status})`));
         }
       });
-      // No response arrived, and that is the whole of what this event says. Report exactly
-      // that: a message naming a cause it doesn't know is worse than no cause at all.
+      // No response arrived, which is the whole of what this event says. Say only that.
       xhr.addEventListener("error", () =>
         reject(new Error("the upload didn't finish — the server sent no reply"))
       );

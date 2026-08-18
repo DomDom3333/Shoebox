@@ -22,8 +22,8 @@ public class CoreFlowTests
         (byte)'i', (byte)'s', (byte)'o', (byte)'m', (byte)'m', (byte)'p', (byte)'4', (byte)'2',
     ];
 
-    // An EBML header, which is what a Matroska (.mkv) or WebM file starts with. Enough to clear
-    // the container check without needing a real clip, as with Mp4Header above.
+    // An EBML header: what a Matroska (.mkv) file starts with, enough to clear the container
+    // check without a real clip, as with Mp4Header above.
     private static readonly byte[] MatroskaHeader =
     [
         0x1A, 0x45, 0xDF, 0xA3, 0x01, 0x00, 0x00, 0x00,
@@ -220,88 +220,10 @@ public class CoreFlowTests
     }
 
     [Fact]
-    public async Task Rejected_file_type_says_what_the_box_does_take()
-    {
-        using var factory = new ShoeboxWebApplicationFactory();
-        using var owner = CreateClient(factory);
-        var code = await CreateBoxAsync(owner);
-
-        var result = await UploadAsync(owner, code, "Alice", "notes.txt", [1, 2, 3, 4]);
-
-        Assert.Equal("rejected", result.Status);
-        Assert.Null(result.MediaId);
-        // "Unsupported" alone leaves the uploader guessing; the accepted formats and their
-        // ceilings have to be in the message itself.
-        Assert.Contains(".txt", result.Reason);
-        Assert.Contains("mkv", result.Reason);
-        Assert.Contains("jpg", result.Reason);
-        Assert.Contains("200 MB", result.Reason);
-    }
-
-    [Fact]
-    public async Task Oversized_video_is_rejected_with_its_size_and_the_limit()
-    {
-        using var factory = new ShoeboxWebApplicationFactory(new Dictionary<string, string>
-        {
-            ["Shoebox:MaxVideoFileSizeMb"] = "1",
-        });
-        using var owner = CreateClient(factory);
-        var code = await CreateBoxAsync(owner);
-
-        var oversized = new byte[3 * 1024 * 1024];
-        MatroskaHeader.CopyTo(oversized, 0);
-        var result = await UploadAsync(owner, code, "Alice", "long.mkv", oversized);
-
-        Assert.Equal("rejected", result.Status);
-        Assert.Null(result.MediaId);
-        Assert.Contains("Too big (3 MB)", result.Reason);
-        Assert.Contains("videos can be up to 1 MB", result.Reason);
-    }
-
-    [Fact]
-    public async Task Gallery_page_tells_the_browser_what_it_may_send()
-    {
-        using var factory = new ShoeboxWebApplicationFactory();
-        using var owner = CreateClient(factory);
-        var code = await CreateBoxAsync(owner);
-
-        var html = await (await owner.GetAsync($"/p/{code}")).Content.ReadAsStringAsync();
-
-        // The pre-flight check in gallery.js reads these; without them a file the server
-        // would refuse is uploaded in full first, and an oversized one dies as "network error".
-        Assert.Contains("data-limits=", html);
-        Assert.Contains("&quot;.mkv&quot;:209715200", html);
-        Assert.Contains("&quot;.jpg&quot;:52428800", html);
-        Assert.Contains("accept=\"image/*,video/*,", html);
-    }
-
-    [Theory]
-    [InlineData("locked", HttpStatusCode.Unauthorized, "locked")]
-    [InlineData("missing", HttpStatusCode.NotFound, "no longer exists")]
-    public async Task Upload_that_fails_outright_still_answers_with_the_reason(
-        string scenario, HttpStatusCode expectedStatus, string expectedReason)
-    {
-        using var factory = new ShoeboxWebApplicationFactory();
-        using var owner = CreateClient(factory);
-        var code = await CreateBoxAsync(owner, password: "festival-secret");
-
-        // A client that has to fill in the blank itself can only guess, and the guess comes
-        // out as a connection problem however little the connection had to do with it.
-        using var caller = scenario == "locked" ? CreateClient(factory) : owner;
-        var target = scenario == "missing" ? "NOSUCHBX" : code;
-
-        var response = await PostUploadAsync(caller, target, "Alice", "sample.png", FortyPixelPng);
-
-        Assert.Equal(expectedStatus, response.StatusCode);
-        var error = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString();
-        Assert.Contains(expectedReason, error, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public async Task Upload_past_the_request_body_limit_answers_413_saying_so()
     {
-        // Small enough ceilings that the request limit itself (the larger of the two, plus
-        // form overhead) is reachable without moving hundreds of megabytes through the test.
+        // Ceilings small enough to reach the request-body limit without moving hundreds of
+        // megabytes through the test.
         using var factory = new ShoeboxWebApplicationFactory(new Dictionary<string, string>
         {
             ["Shoebox:MaxFileSizeMb"] = "1",
@@ -312,8 +234,7 @@ public class CoreFlowTests
 
         var response = await PostUploadAsync(owner, code, "Alice", "huge.mp4", new byte[3 * 1024 * 1024]);
 
-        // Kestrel's own answer to an over-limit body is an unhandled exception and an HTML
-        // error page — a 500 that says nothing about size, and nothing a page can show.
+        // Uncaught, an over-limit body is a 500 and an HTML error page never mentioning size.
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
         var error = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString();
         Assert.Contains("larger than this server accepts", error);

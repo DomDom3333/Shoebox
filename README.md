@@ -168,17 +168,10 @@ appear in the gallery everywhere. The original file is always stored unmodified 
 Download button returns. Files of the wrong type, over `MaxFileSizeMb`, or that don't decode as
 a real image within the pixel limits are rejected at upload.
 
-The browser checks the extension and the size against these limits before it sends anything,
-so a file that wouldn't be accepted is refused in the moment it's picked, naming what the box
-does take. The server re-checks everything regardless — the browser-side check is there to
-save the wait, not to enforce anything.
-
-Every way an upload can fail answers with the reason in the body, in the same shape as a
-success — a box that expired, a box that locked itself again, a body past the request limit
-(which otherwise surfaces as an unhandled exception and an HTML error page saying nothing
-about size). The page shows what the server said and never fills in a cause of its own: a
-client guessing at a bare status code or a dead connection reliably blames the network for
-something the server already knew and named.
+The browser checks a file against these limits before sending it, so one that wouldn't be
+accepted is refused as soon as it's picked; the server checks again regardless. Uploads that
+fail outright answer with the reason in the body, and the page shows what it was told rather
+than filling in a cause of its own.
 
 ### Animations
 
