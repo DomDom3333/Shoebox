@@ -13,7 +13,6 @@ public static class MediaEndpoints
         var api = app.MapGroup("/api");
 
         api.MapPost("/p/{code}/media", UploadAsync).DisableAntiforgery();
-        api.MapGet("/p/{code}/status", PoolStatusAsync);
         api.MapGet("/media/{id:guid}/thumb", ServeThumbAsync);
         api.MapGet("/media/{id:guid}/display", ServeDisplayAsync);
         api.MapGet("/media/{id:guid}/original", ServeOriginalAsync);
@@ -24,41 +23,64 @@ public static class MediaEndpoints
         api.MapGet("/p/{code}/qr", QrCodeAsync);
     }
 
+    /// <summary>
+    /// Takes one upload. Every way this can fail answers with the reason in the body, in the
+    /// same shape as a success: whatever the page shows the uploader has to come from here,
+    /// because a client left to fill in the blank can only guess, and a guess reads as a
+    /// network problem when the file was simply not one this box takes.
+    /// </summary>
     private static async Task<IResult> UploadAsync(
         string code,
         HttpRequest request,
         AppDbContext db,
         PoolService pools,
         MediaService media,
+        MediaHandlers handlers,
         PoolAccessService access,
         UploaderIdentity identity)
     {
         var pool = await pools.FindByCodeAsync(code);
         if (pool is null)
         {
-            return Results.NotFound();
+            return UploadFailed(StatusCodes.Status404NotFound,
+                "This box no longer exists — it may have expired.");
         }
 
         if (!access.CanView(request.HttpContext, pool))
         {
-            return Results.Unauthorized();
+            return UploadFailed(StatusCodes.Status401Unauthorized,
+                "This box is locked. Refresh the page and enter the password again.");
         }
 
         if (!request.HasFormContentType)
         {
-            return Results.BadRequest(new { error = "Expected multipart form data." });
+            return UploadFailed(StatusCodes.Status400BadRequest, "Expected multipart form data.");
         }
 
-        var form = await request.ReadFormAsync();
+        IFormCollection form;
+        try
+        {
+            form = await request.ReadFormAsync();
+        }
+        catch (Exception ex) when (ex is BadHttpRequestException or InvalidDataException)
+        {
+            // The body ran past the request limit, so it was never read and nothing below has
+            // seen the file. Left alone this surfaces as an unhandled exception and an HTML
+            // error page, which says nothing at all about size.
+            return UploadFailed(StatusCodes.Status413PayloadTooLarge,
+                $"That file is larger than this server accepts — {handlers.Policy.Summary}.");
+        }
+
         var uploaderName = form["uploaderName"].ToString().Trim();
         if (uploaderName.Length is 0 or > 80)
         {
-            return Results.BadRequest(new { error = "Please tell us who you are (1-80 characters)." });
+            return UploadFailed(StatusCodes.Status400BadRequest,
+                "Please tell us who you are (1-80 characters).");
         }
 
         if (form.Files.Count == 0)
         {
-            return Results.BadRequest(new { error = "No files in upload." });
+            return UploadFailed(StatusCodes.Status400BadRequest, "No files in upload.");
         }
 
         var uid = identity.GetOrCreateUid(request.HttpContext);
@@ -73,25 +95,9 @@ public static class MediaEndpoints
         return Results.Ok(new { results });
     }
 
-    /// <summary>
-    /// Whether this box is still there and still open to the caller. Small and cheap on
-    /// purpose: an upload that dies without a response leaves the browser able to report
-    /// nothing but "network error", and this is what the page asks afterwards to turn that
-    /// into something the uploader can act on.
-    /// </summary>
-    private static async Task<IResult> PoolStatusAsync(
-        string code, HttpContext context, PoolService pools, PoolAccessService access)
-    {
-        var pool = await pools.FindByCodeAsync(code);
-        if (pool is null)
-        {
-            return Results.NotFound();
-        }
-
-        return access.CanView(context, pool)
-            ? Results.Ok(new { open = true })
-            : Results.Unauthorized();
-    }
+    /// <summary>An upload that failed outright, carrying why in the body the page reads.</summary>
+    private static IResult UploadFailed(int statusCode, string error) =>
+        Results.Json(new { error }, statusCode: statusCode);
 
     private static async Task<IResult> ServeThumbAsync(
         Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths)

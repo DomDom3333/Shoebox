@@ -21,11 +21,16 @@
   const limitsSummary = fileInput.dataset.limitsSummary || "";
 
   function parseLimits(json) {
+    return parseJson(json) || {};
+  }
+
+  // Null for anything that isn't JSON — an error page from a proxy, most likely, which is
+  // exactly the case where the page must not pretend to know what happened.
+  function parseJson(text) {
     try {
-      return JSON.parse(json || "{}");
+      return JSON.parse(text);
     } catch {
-      // Without limits the pre-flight check simply stands down and the server decides.
-      return {};
+      return null;
     }
   }
 
@@ -134,22 +139,6 @@
     }
   }
 
-  // Turns a failure the browser couldn't explain into one the uploader can act on, by asking
-  // the server a question small enough to answer even when a large upload just died.
-  function failWithDiagnosis(reject, fallback) {
-    fetch(`/api/p/${poolCode}/status`, { cache: "no-store" })
-      .then((res) => {
-        if (res.status === 401) return "the box locked again — refresh the page to re-enter the password";
-        if (res.status === 404) return "this box is gone — it may have expired";
-        // The box is fine and reachable, so it was this particular upload that was refused.
-        if (res.ok) return `${fallback} — it may be larger than the server accepts`;
-        return fallback;
-      })
-      // The small request failed too, so the connection really is the problem.
-      .catch(() => "lost the connection to the server")
-      .then((reason) => reject(new Error(reason)));
-  }
-
   function uploadOne(file, onProgress) {
     // XHR instead of fetch: fetch has no upload progress events.
     return new Promise((resolve, reject) => {
@@ -162,35 +151,30 @@
       xhr.upload.addEventListener("progress", (e) => {
         if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       });
+      // Whatever went wrong, the reason is the server's to give — every failure it produces
+      // answers with one. Nothing here invents a cause from a bare status code, because the
+      // invented cause is always wrong in the same direction: it blames the connection for
+      // something the server already knew and said.
       xhr.addEventListener("load", () => {
+        const body = parseJson(xhr.responseText);
         if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            resolve(JSON.parse(xhr.responseText));
-          } catch {
-            // A 200 that isn't ours — a proxy's interstitial, most likely.
-            failWithDiagnosis(reject, "the server sent back something unexpected");
-          }
-        } else if (xhr.status === 401) {
-          reject(new Error("box is locked; refresh the page"));
+          if (body) resolve(body);
+          else reject(new Error("the server's reply wasn't in a form this page could read"));
+        } else if (body && body.error) {
+          reject(new Error(body.error));
         } else if (xhr.status === 413) {
-          reject(new Error(`file too large — ${limitsSummary || "try a smaller one"}`));
+          // No reason in the body means this 413 came from something in front of the app —
+          // a proxy with a smaller body limit of its own. The status still says what it is.
+          reject(new Error(`larger than this server accepts — ${limitsSummary}`));
         } else {
-          // An error page rather than our JSON means whatever went wrong went wrong before
-          // the upload was ever looked at, so the server is worth asking about.
-          let msg = null;
-          try { msg = JSON.parse(xhr.responseText).error; } catch { /* not ours */ }
-          if (msg) reject(new Error(msg));
-          else failWithDiagnosis(reject, `the server refused this upload (error ${xhr.status})`);
+          reject(new Error(`the server refused this upload (HTTP ${xhr.status})`));
         }
       });
-      // A request that dies without a response lands here, and the event says nothing about
-      // why: a dropped connection, a box that locked itself again, and a proxy hanging up on
-      // a body it thought too big are one and the same to the browser. Don't guess — ask.
+      // No response arrived, and that is the whole of what this event says. Report exactly
+      // that: a message naming a cause it doesn't know is worse than no cause at all.
       xhr.addEventListener("error", () =>
-        failWithDiagnosis(reject, "the upload was cut off before the server answered")
+        reject(new Error("the upload didn't finish — the server sent no reply"))
       );
-      xhr.addEventListener("abort", () => reject(new Error("upload cancelled")));
-      xhr.addEventListener("timeout", () => reject(new Error("upload timed out")));
       xhr.send(form);
     });
   }

@@ -173,13 +173,12 @@ so a file that wouldn't be accepted is refused in the moment it's picked, naming
 does take. The server re-checks everything regardless — the browser-side check is there to
 save the wait, not to enforce anything.
 
-An upload can also fail without the server ever answering: a request that exceeds the
-body limit (the app's own, or a reverse proxy's `client_max_body_size`) is cut off part-way
-through, and a box that locked itself again answers before the body is read. The browser
-reports every one of these as the same bare error event, with nothing in it to act on, so the
-page follows a failed upload with a small request to `GET /api/p/{code}/status` and reports
-what that says instead: box gone, box locked, or box fine — in which case it was that
-particular upload the server would not take.
+Every way an upload can fail answers with the reason in the body, in the same shape as a
+success — a box that expired, a box that locked itself again, a body past the request limit
+(which otherwise surfaces as an unhandled exception and an HTML error page saying nothing
+about size). The page shows what the server said and never fills in a cause of its own: a
+client guessing at a bare status code or a dead connection reliably blames the network for
+something the server already knew and named.
 
 ### Animations
 

@@ -275,23 +275,49 @@ public class CoreFlowTests
         Assert.Contains("accept=\"image/*,video/*,", html);
     }
 
-    [Fact]
-    public async Task Pool_status_says_whether_the_box_is_reachable_and_open()
+    [Theory]
+    [InlineData("locked", HttpStatusCode.Unauthorized, "locked")]
+    [InlineData("missing", HttpStatusCode.NotFound, "no longer exists")]
+    public async Task Upload_that_fails_outright_still_answers_with_the_reason(
+        string scenario, HttpStatusCode expectedStatus, string expectedReason)
     {
         using var factory = new ShoeboxWebApplicationFactory();
         using var owner = CreateClient(factory);
         var code = await CreateBoxAsync(owner, password: "festival-secret");
 
-        // This is what the page asks after an upload dies without a response, so it has to
-        // separate the three things the browser's error event cannot: box gone, box locked,
-        // and box fine (so it was that upload the server refused).
-        var open = await owner.GetAsync($"/api/p/{code}/status");
-        Assert.Equal(HttpStatusCode.OK, open.StatusCode);
-        Assert.True((await open.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("open").GetBoolean());
+        // A client that has to fill in the blank itself can only guess, and the guess comes
+        // out as a connection problem however little the connection had to do with it.
+        using var caller = scenario == "locked" ? CreateClient(factory) : owner;
+        var target = scenario == "missing" ? "NOSUCHBX" : code;
 
-        using var guest = CreateClient(factory);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await guest.GetAsync($"/api/p/{code}/status")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync("/api/p/NOSUCHBX/status")).StatusCode);
+        var response = await PostUploadAsync(caller, target, "Alice", "sample.png", FortyPixelPng);
+
+        Assert.Equal(expectedStatus, response.StatusCode);
+        var error = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString();
+        Assert.Contains(expectedReason, error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Upload_past_the_request_body_limit_answers_413_saying_so()
+    {
+        // Small enough ceilings that the request limit itself (the larger of the two, plus
+        // form overhead) is reachable without moving hundreds of megabytes through the test.
+        using var factory = new ShoeboxWebApplicationFactory(new Dictionary<string, string>
+        {
+            ["Shoebox:MaxFileSizeMb"] = "1",
+            ["Shoebox:MaxVideoFileSizeMb"] = "1",
+        });
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var response = await PostUploadAsync(owner, code, "Alice", "huge.mp4", new byte[3 * 1024 * 1024]);
+
+        // Kestrel's own answer to an over-limit body is an unhandled exception and an HTML
+        // error page — a 500 that says nothing about size, and nothing a page can show.
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        var error = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString();
+        Assert.Contains("larger than this server accepts", error);
+        Assert.Contains("1 MB", error);
     }
 
     [Fact]
@@ -439,6 +465,19 @@ public class CoreFlowTests
         string fileName,
         byte[] bytes)
     {
+        var response = await PostUploadAsync(client, code, uploader, fileName, bytes);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<UploadEnvelope>();
+        return Assert.Single(Assert.IsType<UploadEnvelope>(body).Results);
+    }
+
+    private static async Task<HttpResponseMessage> PostUploadAsync(
+        HttpClient client,
+        string code,
+        string uploader,
+        string fileName,
+        byte[] bytes)
+    {
         using var form = new MultipartFormDataContent();
         form.Add(new StringContent(uploader), "uploaderName");
         var file = new ByteArrayContent(bytes);
@@ -446,10 +485,7 @@ public class CoreFlowTests
             new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
         form.Add(file, "files", fileName);
 
-        var response = await client.PostAsync($"/api/p/{code}/media", form);
-        response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<UploadEnvelope>();
-        return Assert.Single(Assert.IsType<UploadEnvelope>(body).Results);
+        return await client.PostAsync($"/api/p/{code}/media", form);
     }
 
     private sealed record UploadEnvelope(UploadResponse[] Results);
