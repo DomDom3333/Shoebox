@@ -10,17 +10,19 @@ namespace Shoebox.Web.Services;
 /// </summary>
 public class VideoHandler(VideoRenderer renderer, IOptions<ShoeboxOptions> options) : IMediaHandler
 {
-    private static readonly Dictionary<string, string> ContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    public IReadOnlyDictionary<string, string> ContentTypes { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         [".mp4"] = "video/mp4",
         [".m4v"] = "video/mp4",
         [".mov"] = "video/quicktime",
         [".webm"] = "video/webm",
+        // Matroska shares WebM's container, so the header check and ffmpeg already handled it.
+        [".mkv"] = "video/x-matroska",
     };
 
     public MediaKind Kind => MediaKind.Video;
 
-    public string? ContentTypeFor(string extension) => ContentTypes.GetValueOrDefault(extension);
+    public string Label => "video";
 
     public long MaxBytes => options.Value.MaxVideoFileSizeBytes;
 

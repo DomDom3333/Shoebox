@@ -6,8 +6,12 @@ namespace Shoebox.Tests.Web;
 
 public sealed class ShoeboxWebApplicationFactory : WebApplicationFactory<Program>
 {
-    public ShoeboxWebApplicationFactory()
+    private readonly IReadOnlyDictionary<string, string> settings;
+
+    /// <param name="settings">Configuration overrides for this instance.</param>
+    public ShoeboxWebApplicationFactory(IReadOnlyDictionary<string, string>? settings = null)
     {
+        this.settings = settings ?? new Dictionary<string, string>();
         DataPath = Path.Combine(
             Path.GetTempPath(),
             $"shoebox-tests-{Guid.NewGuid():N}");
@@ -21,6 +25,10 @@ public sealed class ShoeboxWebApplicationFactory : WebApplicationFactory<Program
         builder.UseEnvironment("Testing");
         builder.UseSetting("Shoebox:DataPath", DataPath);
         builder.UseSetting("Shoebox:CookieLifetimeDays", "1");
+        foreach (var (key, value) in settings)
+        {
+            builder.UseSetting(key, value);
+        }
     }
 
     protected override void Dispose(bool disposing)

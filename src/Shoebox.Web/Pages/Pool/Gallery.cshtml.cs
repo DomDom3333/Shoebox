@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Shoebox.Web.Data;
 using Shoebox.Web.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +17,8 @@ public class GalleryModel(
     PoolService pools,
     PoolAccessService access,
     UploaderIdentity identity,
-    ShareLinkService links) : PageModel
+    ShareLinkService links,
+    MediaHandlers handlers) : PageModel
 {
     public Data.Pool Pool { get; set; } = null!;
     public List<MediaTile> Items { get; set; } = [];
@@ -31,6 +33,11 @@ public class GalleryModel(
     // Whether the box holds anything the current visitor did not upload, so the
     // "everyone else's" download only offers itself when it would actually return files.
     public bool HasOthers { get; set; }
+
+    // Handed to the page so the browser can turn a file away before sending it.
+    public UploadPolicy UploadPolicy => handlers.Policy;
+
+    public string UploadLimitsJson => JsonSerializer.Serialize(UploadPolicy.MaxBytesByExtension);
 
     public async Task<IActionResult> OnGetAsync(string code)
     {

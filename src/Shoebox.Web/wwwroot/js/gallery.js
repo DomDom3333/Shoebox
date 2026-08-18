@@ -12,6 +12,39 @@
 
   // ---------- Upload ----------
 
+  // What the server takes, extension -> byte ceiling, so a file it would refuse is refused
+  // here instead of after a long upload. The server checks again regardless.
+  const limits = parseJson(fileInput.dataset.limits) || {};
+  const limitsSummary = fileInput.dataset.limitsSummary || "";
+
+  function parseJson(text) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
+  // Why this file can't be sent, or null when it's worth trying.
+  function whyNotUploadable(file) {
+    if (!Object.keys(limits).length) return null;
+
+    const dot = file.name.lastIndexOf(".");
+    const extension = dot > 0 ? file.name.slice(dot).toLowerCase() : "";
+    const max = limits[extension];
+    if (max === undefined) {
+      const what = extension ? extension + " files" : "files with no extension";
+      return `Can't take ${what} — ${limitsSummary}`;
+    }
+    if (file.size === 0) return "Empty file";
+    if (file.size > max) return `Too big (${describeSize(file.size)}) — up to ${describeSize(max)}`;
+    return null;
+  }
+
+  function describeSize(bytes) {
+    return (bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "") + " MB";
+  }
+
   pickBtn.addEventListener("click", () => {
     if (!requireName()) return;
     fileInput.click();
@@ -63,6 +96,13 @@
       progressList.appendChild(item);
       const status = item.querySelector(".status");
 
+      const problem = whyNotUploadable(file);
+      if (problem) {
+        status.textContent = problem;
+        status.className = "status fail";
+        continue;
+      }
+
       try {
         const result = await uploadOne(file, (pct) => (status.textContent = pct + "%"));
         const r = result.results && result.results[0];
@@ -99,20 +139,26 @@
       xhr.upload.addEventListener("progress", (e) => {
         if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       });
+      // The reason is the server's to give; nothing here invents one it wasn't told.
       xhr.addEventListener("load", () => {
+        const body = parseJson(xhr.responseText);
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
-        } else if (xhr.status === 401) {
-          reject(new Error("box is locked; refresh the page"));
+          if (body) resolve(body);
+          else reject(new Error("the server's reply wasn't in a form this page could read"));
+        } else if (body && body.error) {
+          reject(new Error(body.error));
         } else if (xhr.status === 413) {
-          reject(new Error("file too large"));
+          // A 413 with no reason in it came from something in front of the app, but the
+          // status alone still says what happened.
+          reject(new Error(`larger than this server accepts — ${limitsSummary}`));
         } else {
-          let msg = "upload failed";
-          try { msg = JSON.parse(xhr.responseText).error || msg; } catch { /* keep default */ }
-          reject(new Error(msg));
+          reject(new Error(`the server refused this upload (HTTP ${xhr.status})`));
         }
       });
-      xhr.addEventListener("error", () => reject(new Error("network error")));
+      // No response arrived, which is the whole of what this event says. Say only that.
+      xhr.addEventListener("error", () =>
+        reject(new Error("the upload didn't finish — the server sent no reply"))
+      );
       xhr.send(form);
     });
   }

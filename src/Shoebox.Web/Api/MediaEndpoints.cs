@@ -23,41 +23,62 @@ public static class MediaEndpoints
         api.MapGet("/p/{code}/qr", QrCodeAsync);
     }
 
+    /// <summary>
+    /// Takes one upload. Every way this can fail answers with the reason in the body: what the
+    /// page shows has to come from here, since a client filling in the blank itself can only
+    /// guess, and its guess is always that the network was at fault.
+    /// </summary>
     private static async Task<IResult> UploadAsync(
         string code,
         HttpRequest request,
         AppDbContext db,
         PoolService pools,
         MediaService media,
+        MediaHandlers handlers,
         PoolAccessService access,
         UploaderIdentity identity)
     {
         var pool = await pools.FindByCodeAsync(code);
         if (pool is null)
         {
-            return Results.NotFound();
+            return UploadFailed(StatusCodes.Status404NotFound,
+                "This box no longer exists — it may have expired.");
         }
 
         if (!access.CanView(request.HttpContext, pool))
         {
-            return Results.Unauthorized();
+            return UploadFailed(StatusCodes.Status401Unauthorized,
+                "This box is locked. Refresh the page and enter the password again.");
         }
 
         if (!request.HasFormContentType)
         {
-            return Results.BadRequest(new { error = "Expected multipart form data." });
+            return UploadFailed(StatusCodes.Status400BadRequest, "Expected multipart form data.");
         }
 
-        var form = await request.ReadFormAsync();
+        IFormCollection form;
+        try
+        {
+            form = await request.ReadFormAsync();
+        }
+        catch (Exception ex) when (ex is BadHttpRequestException or InvalidDataException)
+        {
+            // Past the request-body limit. Left alone this is an unhandled exception and an
+            // HTML error page, which says nothing about size.
+            return UploadFailed(StatusCodes.Status413PayloadTooLarge,
+                $"That file is larger than this server accepts — {handlers.Policy.Summary}.");
+        }
+
         var uploaderName = form["uploaderName"].ToString().Trim();
         if (uploaderName.Length is 0 or > 80)
         {
-            return Results.BadRequest(new { error = "Please tell us who you are (1-80 characters)." });
+            return UploadFailed(StatusCodes.Status400BadRequest,
+                "Please tell us who you are (1-80 characters).");
         }
 
         if (form.Files.Count == 0)
         {
-            return Results.BadRequest(new { error = "No files in upload." });
+            return UploadFailed(StatusCodes.Status400BadRequest, "No files in upload.");
         }
 
         var uid = identity.GetOrCreateUid(request.HttpContext);
@@ -71,6 +92,9 @@ public static class MediaEndpoints
 
         return Results.Ok(new { results });
     }
+
+    private static IResult UploadFailed(int statusCode, string error) =>
+        Results.Json(new { error }, statusCode: statusCode);
 
     private static async Task<IResult> ServeThumbAsync(
         Guid id, HttpContext context, AppDbContext db, PoolAccessService access, StoragePaths paths)

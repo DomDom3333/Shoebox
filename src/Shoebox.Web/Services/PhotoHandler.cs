@@ -9,7 +9,7 @@ namespace Shoebox.Web.Services;
 /// </summary>
 public class PhotoHandler(ImageRenderer renderer, IOptions<ShoeboxOptions> options) : IMediaHandler
 {
-    private static readonly Dictionary<string, string> ContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    public IReadOnlyDictionary<string, string> ContentTypes { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         [".jpg"] = "image/jpeg",
         [".jpeg"] = "image/jpeg",
@@ -22,7 +22,7 @@ public class PhotoHandler(ImageRenderer renderer, IOptions<ShoeboxOptions> optio
 
     public MediaKind Kind => MediaKind.Photo;
 
-    public string? ContentTypeFor(string extension) => ContentTypes.GetValueOrDefault(extension);
+    public string Label => "photo";
 
     public long MaxBytes => options.Value.MaxFileSizeBytes;
 

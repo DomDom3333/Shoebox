@@ -22,6 +22,14 @@ public class CoreFlowTests
         (byte)'i', (byte)'s', (byte)'o', (byte)'m', (byte)'m', (byte)'p', (byte)'4', (byte)'2',
     ];
 
+    // An EBML header: what a Matroska (.mkv) file starts with, enough to clear the container
+    // check without a real clip, as with Mp4Header above.
+    private static readonly byte[] MatroskaHeader =
+    [
+        0x1A, 0x45, 0xDF, 0xA3, 0x01, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x1F, 0x42, 0x86, 0x81, 0x01,
+    ];
+
     [Fact]
     public async Task Animated_gif_gets_a_moving_proxy_and_a_still_thumbnail()
     {
@@ -192,6 +200,48 @@ public class CoreFlowTests
     }
 
     [Fact]
+    public async Task Matroska_clip_is_accepted_like_any_other_video()
+    {
+        using var factory = new ShoeboxWebApplicationFactory();
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var added = await UploadAsync(owner, code, "Alice", "clip.mkv", MatroskaHeader);
+        Assert.Equal("added", added.Status);
+        var mediaId = Assert.IsType<Guid>(added.MediaId);
+
+        var original = await owner.GetAsync($"/api/media/{mediaId}/original");
+        Assert.Equal(HttpStatusCode.OK, original.StatusCode);
+        Assert.Equal("video/x-matroska", original.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(MatroskaHeader, await original.Content.ReadAsByteArrayAsync());
+
+        var gallery = await owner.GetAsync($"/p/{code}");
+        Assert.Contains("media-badge\">\u25B6 Video", await gallery.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Upload_past_the_request_body_limit_answers_413_saying_so()
+    {
+        // Ceilings small enough to reach the request-body limit without moving hundreds of
+        // megabytes through the test.
+        using var factory = new ShoeboxWebApplicationFactory(new Dictionary<string, string>
+        {
+            ["Shoebox:MaxFileSizeMb"] = "1",
+            ["Shoebox:MaxVideoFileSizeMb"] = "1",
+        });
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var response = await PostUploadAsync(owner, code, "Alice", "huge.mp4", new byte[3 * 1024 * 1024]);
+
+        // Uncaught, an over-limit body is a 500 and an HTML error page never mentioning size.
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        var error = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString();
+        Assert.Contains("larger than this server accepts", error);
+        Assert.Contains("1 MB", error);
+    }
+
+    [Fact]
     public async Task File_that_is_not_really_a_video_is_rejected()
     {
         using var factory = new ShoeboxWebApplicationFactory();
@@ -336,6 +386,19 @@ public class CoreFlowTests
         string fileName,
         byte[] bytes)
     {
+        var response = await PostUploadAsync(client, code, uploader, fileName, bytes);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<UploadEnvelope>();
+        return Assert.Single(Assert.IsType<UploadEnvelope>(body).Results);
+    }
+
+    private static async Task<HttpResponseMessage> PostUploadAsync(
+        HttpClient client,
+        string code,
+        string uploader,
+        string fileName,
+        byte[] bytes)
+    {
         using var form = new MultipartFormDataContent();
         form.Add(new StringContent(uploader), "uploaderName");
         var file = new ByteArrayContent(bytes);
@@ -343,10 +406,7 @@ public class CoreFlowTests
             new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
         form.Add(file, "files", fileName);
 
-        var response = await client.PostAsync($"/api/p/{code}/media", form);
-        response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<UploadEnvelope>();
-        return Assert.Single(Assert.IsType<UploadEnvelope>(body).Results);
+        return await client.PostAsync($"/api/p/{code}/media", form);
     }
 
     private sealed record UploadEnvelope(UploadResponse[] Results);

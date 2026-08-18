@@ -53,7 +53,7 @@ For everyone else:
 - **Fast gallery**: a WebP thumbnail grid plus a full-screen lightbox backed by a downscaled web-safe proxy, so viewing is sharp without sending a full-size original over the wire. Filter by uploader; photos sort by capture time (EXIF).
 - **HEIC / HEIF from phones**: decoded server-side, so iPhone photos get thumbnails and previews in every browser, not just Safari.
 - **GIFs that move**: an animated GIF (or animated WebP) plays in the lightbox and when you hover its tile. The grid itself holds still, so a box full of GIFs doesn't flicker at everyone at once.
-- **Short videos, minimally**: MP4/MOV/WebM clips can be dropped in alongside the photos. Each gets a poster frame so it has a tile in the grid, and downloads as the original file. Nothing is transcoded and there is no in-browser playback.
+- **Short videos, minimally**: MP4/MOV/MKV/WebM clips can be dropped in alongside the photos. Each gets a poster frame so it has a tile in the grid, and downloads as the original file. Nothing is transcoded and there is no in-browser playback.
 - **Flexible downloads**: a single photo, the whole box as a streamed ZIP, or "download others'": everything except your own uploads.
 - **Private admin link**: the creator can rename the box, change or remove the password, adjust expiry, delete individual photos, or delete the whole box.
 - **Auto-expiry**: a box can be set to delete itself a chosen number of days after the event.
@@ -168,6 +168,11 @@ appear in the gallery everywhere. The original file is always stored unmodified 
 Download button returns. Files of the wrong type, over `MaxFileSizeMb`, or that don't decode as
 a real image within the pixel limits are rejected at upload.
 
+The browser checks a file against these limits before sending it, so one that wouldn't be
+accepted is refused as soon as it's picked; the server checks again regardless. Uploads that
+fail outright answer with the reason in the body, and the page shows what it was told rather
+than filling in a cause of its own.
+
 ### Animations
 
 An animated GIF (or animated WebP) keeps its animation: the display proxy is written as an
@@ -194,6 +199,7 @@ same box as the photos, and no more:
 | MP4 | `.mp4`, `.m4v` |
 | QuickTime | `.mov` |
 | WebM | `.webm` |
+| Matroska | `.mkv` |
 
 A clip is stored untouched, appears in the grid as a still frame with a **Video** badge, and is
 included in ZIP downloads like anything else. There is **no in-browser playback and no

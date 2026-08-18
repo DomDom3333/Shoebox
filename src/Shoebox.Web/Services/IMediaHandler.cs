@@ -11,10 +11,14 @@ public interface IMediaHandler
 {
     MediaKind Kind { get; }
 
+    /// <summary>What to call this kind when telling someone their file didn't fit.</summary>
+    string Label { get; }
+
     /// <summary>
-    /// The content type to store for this extension, or null when this handler doesn't take it.
+    /// Every extension this handler takes, mapped to the content type to store for it. Looked
+    /// up case-insensitively, so implementations build it with an ordinal-ignore-case comparer.
     /// </summary>
-    string? ContentTypeFor(string extension);
+    IReadOnlyDictionary<string, string> ContentTypes { get; }
 
     /// <summary>Per-file upload ceiling for this kind.</summary>
     long MaxBytes { get; }
@@ -40,6 +44,15 @@ public interface IMediaHandler
     string? RenderFailureReason { get; }
 }
 
+/// <summary>
+/// What the server takes: the ceiling per extension, for the browser to check a file against
+/// before sending it, and the same thing in words, for saying why one didn't fit.
+/// </summary>
+public record UploadPolicy(IReadOnlyDictionary<string, long> MaxBytesByExtension, string Summary)
+{
+    public static string DescribeSize(long bytes) => $"{bytes / (1024.0 * 1024.0):0.#} MB";
+}
+
 /// <summary>Finds the handler for an upload, by file extension or by stored kind.</summary>
 public class MediaHandlers(IEnumerable<IMediaHandler> handlers)
 {
@@ -53,7 +66,7 @@ public class MediaHandlers(IEnumerable<IMediaHandler> handlers)
     {
         foreach (var handler in all)
         {
-            if (handler.ContentTypeFor(extension) is { } contentType)
+            if (handler.ContentTypes.GetValueOrDefault(extension) is { } contentType)
             {
                 return (handler, contentType);
             }
@@ -63,4 +76,12 @@ public class MediaHandlers(IEnumerable<IMediaHandler> handlers)
     }
 
     public IMediaHandler For(MediaKind kind) => all.First(h => h.Kind == kind);
+
+    /// <summary>Assembled from the handlers, so nothing that quotes it can drift from them.</summary>
+    public UploadPolicy Policy => new(
+        all.SelectMany(h => h.ContentTypes.Keys.Select(e => (Extension: e.ToLowerInvariant(), h.MaxBytes)))
+            .ToDictionary(x => x.Extension, x => x.MaxBytes, StringComparer.OrdinalIgnoreCase),
+        string.Join(", ", all.Select(h =>
+            $"{h.Label}s ({string.Join(", ", h.ContentTypes.Keys.Select(e => e.TrimStart('.')))}) "
+            + $"up to {UploadPolicy.DescribeSize(h.MaxBytes)}")));
 }
