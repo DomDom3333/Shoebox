@@ -337,6 +337,58 @@ public class CoreFlowTests
             path => Path.GetFileName(path).StartsWith("upload_", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task Live_feed_hands_over_the_prints_the_page_has_not_drawn()
+    {
+        using var factory = new ShoeboxWebApplicationFactory();
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner);
+
+        var first = await UploadAsync(owner, code, "Alice", "one.png", MakePng(MagickColors.Red));
+        var page = await owner.GetStringAsync($"/p/{code}");
+        var cursor = Regex.Match(page, "data-uploaded=\"(\\d+)\"");
+        Assert.True(cursor.Success, $"No tile to pick the live-refresh cursor up from: {first.MediaId}");
+
+        var second = await UploadAsync(owner, code, "Bob", "two.png", MakePng(MagickColors.Blue));
+        var fresh = await owner.GetStringAsync($"/p/{code}?handler=since&since={cursor.Groups[1].Value}");
+        Assert.Contains($"data-id=\"{second.MediaId}\"", fresh);
+
+        // Nothing has landed since a cursor from the future, so nothing is offered.
+        var later = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds();
+        Assert.DoesNotContain("class=\"tile", await owner.GetStringAsync($"/p/{code}?handler=since&since={later}"));
+    }
+
+    [Fact]
+    public async Task Live_feed_is_shut_to_anyone_who_has_not_unlocked_the_box()
+    {
+        using var factory = new ShoeboxWebApplicationFactory();
+        using var owner = CreateClient(factory);
+        var code = await CreateBoxAsync(owner, password: "festival-secret");
+        await UploadAsync(owner, code, "Alice", "one.png", MakePng(MagickColors.Red));
+
+        // A guest holding a signed cookie of their own — for their box, not this one.
+        using var guest = CreateClient(factory);
+        await CreateBoxAsync(guest, password: "their-own-secret");
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await guest.GetAsync($"/p/{code}?handler=since&since=0")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await guest.GetAsync("/p/nosuchbox?handler=since&since=0")).StatusCode);
+
+        await PostRazorFormAsync(
+            guest,
+            $"/p/{code}/unlock",
+            new Dictionary<string, string> { ["password"] = "festival-secret" });
+        Assert.Contains("class=\"tile", await guest.GetStringAsync($"/p/{code}?handler=since&since=0"));
+    }
+
+    private static byte[] MakePng(MagickColor color)
+    {
+        using var image = new MagickImage(color, 40, 40);
+        return image.ToByteArray(MagickFormat.Png);
+    }
+
     private static HttpClient CreateClient(ShoeboxWebApplicationFactory factory) =>
         factory.CreateClient(new WebApplicationFactoryClientOptions
         {

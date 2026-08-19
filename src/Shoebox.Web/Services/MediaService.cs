@@ -92,7 +92,6 @@ public class MediaService(AppDbContext db, StoragePaths paths, MediaHandlers han
             ContentHash = hash,
             UploaderName = uploaderName.Trim(),
             UploaderUid = uploaderUid,
-            UploadedAt = DateTime.UtcNow,
         };
 
         var originalPath = paths.OriginalFile(pool.Id, media.Id, media.Extension);
@@ -128,6 +127,10 @@ public class MediaService(AppDbContext db, StoragePaths paths, MediaHandlers han
             media.HasAnimation = info.IsAnimated;
         }
 
+        // Stamped here rather than when the upload started: rendering a big photo takes a
+        // while, and the gallery's live feed follows this to decide what is new, so it has to
+        // say when the file actually landed in the box, not when it began arriving.
+        media.UploadedAt = DateTime.UtcNow;
         db.Media.Add(media);
         await db.SaveChangesAsync(ct);
         return UploadResult.Added(fileName, media.Id);
