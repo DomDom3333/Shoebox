@@ -148,7 +148,11 @@ the client IP behind rate limiting and for the `Secure` cookie flag) would then 
 Two things to set:
 
 - `Shoebox__PublicBaseUrl`: your public address, so QR codes and share links are correct.
-- Your proxy's request-body limit: at least the larger of `MaxFileSizeMb` and `MaxVideoFileSizeMb` (for example `client_max_body_size 200m;` in nginx).
+- Your proxy's request-body limit: at least the larger of `MaxFileSizeMb` and `MaxVideoFileSizeMb`
+  (for example `client_max_body_size 200m;` in nginx). Raising `MaxVideoFileSizeMb` alone is not enough —
+  the proxy refuses the upload before Shoebox sees it, and the page then says the file was refused before
+  it reached the app. Cloudflare's free tier caps request bodies at 100 MB and that cap can't be raised;
+  put larger uploads on a hostname that bypasses the proxy.
 
 ## Supported formats
 

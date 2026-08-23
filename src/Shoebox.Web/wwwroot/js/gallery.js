@@ -44,6 +44,12 @@
     return null;
   }
 
+  // Whether the app's own limits would have taken this file, so a refusal that didn't come
+  // from the app can be named as such.
+  function appWouldAccept(file) {
+    return whyNotUploadable(file) === null;
+  }
+
   function describeSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "") + " MB";
   }
@@ -155,9 +161,16 @@
         } else if (body && body.error) {
           reject(new Error(body.error));
         } else if (xhr.status === 413) {
-          // A 413 with no reason in it came from something in front of the app, but the
-          // status alone still says what happened.
-          reject(new Error(`larger than this server accepts — ${limitsSummary}`));
+          // A 413 with no reason in it never came from the app: the app answers its own
+          // size refusals with a reason in the body. Something in front of it — a reverse
+          // proxy, tunnel, or CDN — has a smaller body limit than the app does. Saying
+          // "this server won't take it" would contradict the ceiling the page just showed,
+          // so say where the refusal came from instead.
+          reject(new Error(appWouldAccept(file)
+            ? `refused before it reached the app (${describeSize(file.size)}) — a proxy or `
+              + `tunnel in front of it has a smaller upload limit than this server's own `
+              + `(${limitsSummary}). Whoever runs this box needs to raise it.`
+            : `larger than this server accepts — ${limitsSummary}`));
         } else {
           reject(new Error(`the server refused this upload (HTTP ${xhr.status})`));
         }
