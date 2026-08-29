@@ -558,6 +558,10 @@ input[type="checkbox"] { accent-color: var(--ink); }
 .tile {
   position: relative;
   margin: 0;
+  /* A grid item's automatic minimum is its content's minimum width, and the
+     caption's uploader name never wraps, so a long name would otherwise widen
+     the whole column past the screen instead of being ellipsised. */
+  min-width: 0;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 0;
@@ -856,9 +860,12 @@ input[type="checkbox"] { accent-color: var(--ink); }
   }
 }
 
-/* very small phones: single-column gallery reads better than cramped pairs */
+/* very small phones (a 360px Android, say): a fixed pair, since auto-fill's
+   140px minimum leaves too little room. minmax(0, ...) rather than a bare 1fr,
+   whose automatic minimum is the tile's content and would push the grid — and
+   with it the page — wider than the screen. */
 @media (max-width: 380px) {
-  .gallery { grid-template-columns: 1fr 1fr; }
+  .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
