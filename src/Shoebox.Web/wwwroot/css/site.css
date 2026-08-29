@@ -558,6 +558,7 @@ input[type="checkbox"] { accent-color: var(--ink); }
 .tile {
   position: relative;
   margin: 0;
+  min-width: 0;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 0;
@@ -856,9 +857,8 @@ input[type="checkbox"] { accent-color: var(--ink); }
   }
 }
 
-/* very small phones: single-column gallery reads better than cramped pairs */
 @media (max-width: 380px) {
-  .gallery { grid-template-columns: 1fr 1fr; }
+  .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
